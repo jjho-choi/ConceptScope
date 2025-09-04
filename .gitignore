@@ -1,0 +1,7 @@
+out/
+.vscode/
+credential.py
+__pycache__/
+data/
+legacy/
+wandb/

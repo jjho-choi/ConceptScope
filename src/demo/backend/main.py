@@ -36,7 +36,7 @@ def load_base_info(dataset_name: str = Query(...)):
 
 
 @app.get("/get_concept_distribution")
-def get_concept_distribution(class_idx: int = Query(...)):
+def get_concept_distribution(class_idx: int = Query(...), dataset_name: str = Query(...)):
     df = processor.get_concept_distribution(class_idx)
     return df.to_dict()
 
@@ -47,5 +47,7 @@ def get_concept_info(latent_idx: int = Query(...), top_k_images: int = Query(...
 
 
 @app.get("/get_images_from_class")
-def get_images_from_class(class_idx: int = Query(...), latent_idx: int = Query(...), top_k: int = Query(...)):
+def get_images_from_class(
+    class_idx: int = Query(...), latent_idx: int = Query(...), top_k: int = Query(...), dataset_name: str = Query(...)
+):
     return processor.get_images_from_class(class_idx, latent_idx, top_k=top_k)

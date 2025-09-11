@@ -1,5 +1,6 @@
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 def plot_concept_bar(df, num_concepts=20, height=600):
@@ -48,3 +49,46 @@ def plot_concept_bar(df, num_concepts=20, height=600):
         line=dict(color="red", width=2, dash="dash"),
     )
     return fig
+
+
+def plot_top_class_for_concept(latent_avg_activations, selected_class, class_names, top_k=5):
+    latent_avg_activations = np.array(latent_avg_activations)
+    sorted_indices = np.argsort(latent_avg_activations)[::-1]
+    high_class_indices = sorted_indices[:top_k]
+    top_values = latent_avg_activations[high_class_indices]
+    top_class_names = [class_names[idx] for idx in high_class_indices]
+    hover_text = [f"{idx}: {class_names[idx]}" for idx in high_class_indices]
+
+    selected_class_idx = class_names.index(selected_class)
+
+    if selected_class_idx in high_class_indices:
+        class_rank = np.where(high_class_indices == selected_class_idx)[0][0] + 1
+        class_value = latent_avg_activations[selected_class_idx]
+    else:
+        class_rank = np.where(sorted_indices == selected_class_idx)[0][0] + 1
+        class_value = latent_avg_activations[selected_class_idx]
+
+    info = f"ℹ️ Selected class **{selected_class}** for the concept is ranked #{class_rank} with an activation value of {class_value:.2f}."
+
+    bar_colors = ["orange" if idx == selected_class_idx else "#888" for idx in high_class_indices]
+
+    fig = go.Figure(
+        go.Bar(
+            x=top_class_names,
+            y=top_values,
+            text=[f"{v:.2f}" for v in top_values],
+            textposition="auto",
+            marker=dict(color=bar_colors),
+            hovertext=hover_text,
+            hoverinfo="text",
+        )
+    )
+
+    fig.update_layout(
+        # title=f"Top-{top_k} Class Activations for Selected Concept",
+        xaxis_title="Average Activation",
+        yaxis_title="Class Name",
+        margin=dict(l=40, r=20, t=50, b=80),
+        # height=VisualizationConfig.figure_height,
+    )
+    return fig, info

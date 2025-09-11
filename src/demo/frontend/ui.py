@@ -23,13 +23,7 @@ def set_page():
 
 
 def set_config_view():
-    st.subheader("Dataset and Model Configuration")
-    selected_dataset = st.selectbox(
-        "Select Dataset",
-        AppConfig.dataset_options,
-        index=AppConfig.dataset_options.index(AppConfig.default_dataset),
-        key="dataset_select",
-    )
+    st.subheader("VisualizationConfiguration")
 
     st.slider(
         "Top-k Concepts for Class",
@@ -58,25 +52,32 @@ def set_config_view():
         key="top_k_sample_for_class",
     )
 
-    return selected_dataset
+
+def render_option_view():
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_dataset = st.selectbox(
+            "Select Dataset",
+            AppConfig.dataset_options,
+            index=AppConfig.dataset_options.index(AppConfig.default_dataset),
+            key="dataset_select",
+        )
+
+    if selected_dataset != st.session_state.selected_dataset:
+        base_info = api.load_base_info(selected_dataset)
+        utils.save_base_info(base_info)
+
+    with col2:
+        selected_class = st.selectbox(
+            "Select Class",
+            st.session_state.class_names,
+            index=0,
+            key="class_select",
+        )
+    return selected_dataset, selected_class
 
 
 def render_class_view():
-    selected_class = st.selectbox(
-        "Select Class",
-        st.session_state.class_names,
-        index=0,
-        key="class_select",
-    )
-
-    if selected_class != st.session_state.selected_class:
-        st.session_state.selected_class = selected_class
-        class_idx = st.session_state.class_names.index(selected_class)
-
-        concept_distribution = api.get_concept_distribution(class_idx)
-        concept_distribution = utils.process_concept_distribution(concept_distribution)
-        st.session_state.concept_distribution = concept_distribution
-
     col1, col2 = st.columns(2)
     with col1:
         fig = figures.plot_concept_bar(
@@ -87,8 +88,6 @@ def render_class_view():
         st.plotly_chart(fig)
     with col2:
         show_class_concepts(st.session_state.concept_distribution)
-
-    return selected_class
 
 
 def show_horizontal_image_row(b64_images, captions=None, height=100, font_size=12, highlight_idx=None):
@@ -167,23 +166,39 @@ def render_concept_info():
     concept_images = api.get_concept_info(latent_idx, top_k_images=st.session_state.top_k_sample_for_concept)
     st.markdown(f"#### {concept_info['latent_name']} - {latent_idx}")
 
-    st.markdown("**Reference Images**")
-    show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_concept")
+    col1, col2 = st.columns([1, 2])
 
-    if show_mask:
-        show_horizontal_image_row(concept_images["masked_high_images"])
-    else:
-        show_horizontal_image_row(concept_images["high_activating_images"])
+    with col1:
+        fig, info = figures.plot_top_class_for_concept(
+            concept_images["latent_avg_activations"],
+            st.session_state.selected_class,
+            st.session_state.class_names,
+        )
+        st.plotly_chart(fig)
+        st.info(info)
 
-    class_images = api.get_images_from_class(
-        st.session_state.selected_class, latent_idx, top_k=st.session_state.top_k_sample_for_concept
-    )
-    st.markdown("**High activating class images**")
-    show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_class")
-    if show_mask:
-        show_horizontal_image_row(class_images["masked_highest_images"])
-    else:
-        show_horizontal_image_row(class_images["highest_images"])
+    with col2:
 
-    st.markdown("**Low activating class images**")
-    show_horizontal_image_row(class_images["lowest_images"])
+        st.markdown("**Reference Images**")
+        show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_concept")
+
+        if show_mask:
+            show_horizontal_image_row(concept_images["masked_high_images"])
+        else:
+            show_horizontal_image_row(concept_images["high_activating_images"])
+
+        class_images = api.get_images_from_class(
+            st.session_state.selected_class,
+            latent_idx,
+            top_k=st.session_state.top_k_sample_for_concept,
+            dataset_name=st.session_state.selected_dataset,
+        )
+        st.markdown("**High activating class images**")
+        show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_class")
+        if show_mask:
+            show_horizontal_image_row(class_images["masked_highest_images"], captions=class_images["high_activations"])
+        else:
+            show_horizontal_image_row(class_images["highest_images"], captions=class_images["high_activations"])
+
+        st.markdown("**Low activating class images**")
+        show_horizontal_image_row(class_images["lowest_images"], captions=class_images["low_activations"])

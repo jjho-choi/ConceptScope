@@ -178,9 +178,12 @@ class Processor:
             resize_size=resize_size,
         )
 
+        latent_avg_activations = self.concept_matrix[0][:, latent_idx]
+
         return {
             "high_activating_images": self.encode_images(high_activating_images),
             "masked_high_images": self.encode_images(masked_high_images),
+            "latent_avg_activations": latent_avg_activations.tolist(),
         }
 
     def get_concept_categorization_dict(
@@ -365,80 +368,17 @@ class Processor:
             "test_images": test_image_dict,
         }
 
-    def get_activation_from_indices(self, indices, classes, split="test", latent_idx=None):
+    def get_activation_from_indices(self, indices, class_idx, split="test", latent_idx=None):
         if split == "train":
             split = self.train_split
         else:
             split = self.test_split
-
-        unique_classes = np.unique(classes)
-        out = []
-        for selected_class in unique_classes:
-            class_indices = indices[np.where(classes == selected_class)[0]]
-            class_indices_all, class_activations = self.get_class_indices_and_activations(
-                class_idx=selected_class, split=split, latent_idx=latent_idx
-            )
-            local_class_indices = np.where(np.isin(class_indices_all, class_indices))[0]
-            local_activations = class_activations[local_class_indices,]
-            out.append(local_activations)
-        out = np.concatenate(out, axis=0)
-        return out
-
-    def get_class_samples_umap(
-        self,
-        selected_class,
-        top_k_latents=100,
-        n_neighbors=15,
-        min_dist=0.1,
-        metric="cosine",
-        seed=42,
-    ):
-        train_indices, train_activations = self.get_class_indices_and_activations(
-            class_idx=selected_class, split=self.train_split
+        class_indices_all, class_activations = self.get_class_indices_and_activations(
+            class_idx=class_idx, split=split, latent_idx=latent_idx
         )
-        test_indices, test_activations = self.get_class_indices_and_activations(
-            class_idx=selected_class, split=self.test_split
-        )
-
-        all_pred_labels = self.pred_results["all_prediction"]["pred_label"].to_numpy()
-        all_gt_labels = self.pred_results["all_prediction"]["gt_label"].to_numpy()
-        test_preds = all_pred_labels[test_indices]
-
-        false_positive_indices = np.where((all_gt_labels != selected_class) & (all_pred_labels == selected_class))[0]
-        fp_classes = all_gt_labels[false_positive_indices]
-        test_fp_acivations = self.get_activation_from_indices(
-            indices=false_positive_indices, classes=fp_classes, split=self.test_split, latent_idx=None
-        )
-
-        all_activations = np.concatenate([train_activations, test_activations, test_fp_acivations], axis=0)
-        all_indices = np.concatenate([train_indices, test_indices, false_positive_indices], axis=0)
-
-        latent_means = np.mean(all_activations, axis=0)
-        top_latents = np.argsort(latent_means)[-top_k_latents:]
-        selected_activations = all_activations[:, top_latents]
-
-        reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, metric=metric, random_state=seed)
-        embedding = reducer.fit_transform(selected_activations)
-
-        pred_combined = np.concatenate(
-            [[-1] * len(train_indices), test_preds, selected_class * np.ones(len(false_positive_indices))], axis=0
-        )
-        split_labels = (
-            ["train"] * len(train_indices) + ["test"] * len(test_indices) + ["fp"] * len(false_positive_indices)
-        )
-        gt_combined = np.concatenate([[selected_class] * (len(train_indices) + len(test_indices)), fp_classes], axis=0)
-
-        out_dict = {
-            "UMAP-1": embedding[:, 0],
-            "UMAP-2": embedding[:, 1],
-            "split": split_labels,
-            "indices": all_indices,
-            "preds": pred_combined,
-            "gts": gt_combined,
-        }
-        df = pd.DataFrame(out_dict)
-
-        return df
+        local_class_indices = np.where(np.isin(class_indices_all, indices))[0]
+        local_activations = class_activations[local_class_indices,]
+        return local_activations
 
     def get_concept_distribution(self, selected_class, bias_sigma=1, max_concepts=20):
         data = {
@@ -589,12 +529,21 @@ class Processor:
         highest_images = _get_image_from_index(class_indices, highest_indices, dataset, resize_size)
         lowest_images = _get_image_from_index(class_indices, lowest_indices, dataset, resize_size)
 
+        high_activations = self.get_activation_from_indices(
+            indices=highest_indices, class_idx=class_idx, latent_idx=latent_idx, split=split
+        )
+        low_activations = self.get_activation_from_indices(
+            indices=lowest_indices, class_idx=class_idx, latent_idx=latent_idx, split=split
+        )
+
         highest_image_mask = self.get_sae_mask(highest_images, latent_idx, resize_size)
         masked_highest_images = self.apply_sae_mask_to_input(highest_images, highest_image_mask, reverse=False)
         return {
             "highest_images": self.encode_images(highest_images),
             "lowest_images": self.encode_images(lowest_images),
             "masked_highest_images": self.encode_images(masked_highest_images),
+            "high_activations": high_activations.tolist(),
+            "low_activations": low_activations.tolist(),
         }
 
     def get_all_images(self, class_idx, latent_idx, resize_size=256, top_k=10):

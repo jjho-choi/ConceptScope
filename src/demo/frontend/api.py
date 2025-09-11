@@ -17,8 +17,10 @@ def load_base_info(dataset_name: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner="Loading concept distribution")
-def get_concept_distribution(class_idx: int) -> pd.DataFrame:
-    res = requests.get(f"http://localhost:{os.getenv('PORT')}/get_concept_distribution?class_idx={class_idx}")
+def get_concept_distribution(class_idx: int, dataset_name: str) -> pd.DataFrame:
+    res = requests.get(
+        f"http://localhost:{os.getenv('PORT')}/get_concept_distribution?class_idx={class_idx}&dataset_name={dataset_name}"
+    )
     res.raise_for_status()
     data = res.json()
     return pd.DataFrame(data)
@@ -35,10 +37,10 @@ def get_concept_info(latent_idx: int, top_k_images: int) -> dict:
 
 
 @st.cache_data(show_spinner="Loading class images")
-def get_images_from_class(class_name: str, latent_idx: int, top_k: int) -> dict:
+def get_images_from_class(class_name: str, latent_idx: int, top_k: int, dataset_name: str) -> dict:
     class_idx = st.session_state.class_names.index(class_name)
     res = requests.get(
-        f"http://localhost:{os.getenv('PORT')}/get_images_from_class?class_idx={class_idx}&latent_idx={latent_idx}&top_k={top_k}"
+        f"http://localhost:{os.getenv('PORT')}/get_images_from_class?class_idx={class_idx}&latent_idx={latent_idx}&top_k={top_k}&dataset_name={dataset_name}"
     )
     res.raise_for_status()
     data = res.json()

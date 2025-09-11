@@ -529,21 +529,14 @@ class Processor:
         highest_images = _get_image_from_index(class_indices, highest_indices, dataset, resize_size)
         lowest_images = _get_image_from_index(class_indices, lowest_indices, dataset, resize_size)
 
-        high_activations = self.get_activation_from_indices(
-            indices=highest_indices, class_idx=class_idx, latent_idx=latent_idx, split=split
-        )
-        low_activations = self.get_activation_from_indices(
-            indices=lowest_indices, class_idx=class_idx, latent_idx=latent_idx, split=split
-        )
-
         highest_image_mask = self.get_sae_mask(highest_images, latent_idx, resize_size)
         masked_highest_images = self.apply_sae_mask_to_input(highest_images, highest_image_mask, reverse=False)
         return {
             "highest_images": self.encode_images(highest_images),
             "lowest_images": self.encode_images(lowest_images),
             "masked_highest_images": self.encode_images(masked_highest_images),
-            "high_activations": high_activations.tolist(),
-            "low_activations": low_activations.tolist(),
+            "high_activations": latent_activations[highest_indices].tolist(),
+            "low_activations": latent_activations[lowest_indices].tolist(),
         }
 
     def get_all_images(self, class_idx, latent_idx, resize_size=256, top_k=10):

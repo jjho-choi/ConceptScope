@@ -1,6 +1,7 @@
 class AppConfig:
     dataset_options = ["ImageNet", "SUN397", "Food101"]
     default_dataset = "ImageNet"
+    mid_font_size = 18
 
 
 class ClassOverviewConfig:
@@ -28,4 +29,4 @@ class ClassSampleViewConfig:
 
 
 class ConceptListViewConfig:
-    height = 600
+    height = 850

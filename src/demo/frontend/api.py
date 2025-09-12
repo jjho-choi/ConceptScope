@@ -45,3 +45,14 @@ def get_images_from_class(class_name: str, latent_idx: int, top_k: int, dataset_
     res.raise_for_status()
     data = res.json()
     return data
+
+
+@st.cache_data(show_spinner="Loading class images with prediction")
+def get_images_with_prediction(class_name: str, latent_idx: int, top_k: int, dataset_name: str, threshold: float) -> dict:
+    class_idx = st.session_state.class_names.index(class_name)
+    res = requests.get(
+        f"http://localhost:{os.getenv('PORT')}/get_images_with_prediction?class_idx={class_idx}&latent_idx={latent_idx}&top_k={top_k}&dataset_name={dataset_name}&threshold={threshold}"
+    )
+    res.raise_for_status()
+    data = res.json()
+    return data

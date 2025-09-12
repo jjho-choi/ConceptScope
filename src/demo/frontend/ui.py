@@ -1,6 +1,4 @@
-from io import BytesIO
-
-import numpy as np
+import pandas as pd
 import streamlit as st
 from PIL import Image
 
@@ -90,13 +88,13 @@ def render_class_view():
         show_class_concepts(st.session_state.concept_distribution)
 
 
-def show_horizontal_image_row(b64_images, captions=None, height=100, font_size=12, highlight_idx=None):
+def show_horizontal_image_row(b64_images, captions=None, height=100, font_size=12, colors=None):
     """
     Render images in a horizontal scrollable row.
     """
     html = '<div style="display: flex; overflow-x: auto; gap: 10px; margin-top: 0; padding: 3px;">'
     for i, img in enumerate(b64_images):
-        border_color = "#4CAF50" if (highlight_idx is not None and i == highlight_idx) else "#ccc"
+        border_color = "#ccc" if colors is None else colors[i]
         html += (
             f'<div style="flex-shrink: 0; text-align: center;">'
             f'<img src="data:image/png;base64,{img}" '
@@ -164,11 +162,11 @@ def render_concept_info():
     concept_info = st.session_state.concept_distribution.iloc[st.session_state.selected_concept]
     latent_idx = int(concept_info["latent_idx"])
     concept_images = api.get_concept_info(latent_idx, top_k_images=st.session_state.top_k_sample_for_concept)
-    st.markdown(f"#### {concept_info['latent_name']} - {latent_idx}")
-
+    st.session_state.latent_avg_activations = concept_images["latent_avg_activations"]
     col1, col2 = st.columns([1, 2])
 
     with col1:
+        st.markdown(f"#### {concept_info['latent_name']} - {latent_idx}")
         fig, info = figures.plot_top_class_for_concept(
             concept_images["latent_avg_activations"],
             st.session_state.selected_class,
@@ -179,26 +177,115 @@ def render_concept_info():
 
     with col2:
 
-        st.markdown("**Reference Images**")
-        show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_concept")
+        show_referfence_images(concept_images)
+        show_train_sample_images(latent_idx)
 
-        if show_mask:
-            show_horizontal_image_row(concept_images["masked_high_images"])
-        else:
-            show_horizontal_image_row(concept_images["high_activating_images"])
+        class_dict = show_test_sample_images(latent_idx)
 
-        class_images = api.get_images_from_class(
-            st.session_state.selected_class,
-            latent_idx,
-            top_k=st.session_state.top_k_sample_for_concept,
-            dataset_name=st.session_state.selected_dataset,
-        )
-        st.markdown("**High activating class images**")
-        show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images_class")
-        if show_mask:
-            show_horizontal_image_row(class_images["masked_highest_images"], captions=class_images["high_activations"])
-        else:
-            show_horizontal_image_row(class_images["highest_images"], captions=class_images["high_activations"])
+    with col1:
+        show_high_low_diff(class_dict)
 
-        st.markdown("**Low activating class images**")
-        show_horizontal_image_row(class_images["lowest_images"], captions=class_images["low_activations"])
+
+def show_referfence_images(concept_images):
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>Reference Images</p>",
+        unsafe_allow_html=True,
+    )
+    show_mask = st.checkbox("Show masked images", value=True, key="show_masked_images")
+
+    if show_mask:
+        show_horizontal_image_row(concept_images["masked_high_images"])
+    else:
+        show_horizontal_image_row(concept_images["high_activating_images"])
+
+
+def show_train_sample_images(latent_idx):
+    class_images = api.get_images_from_class(
+        st.session_state.selected_class,
+        latent_idx,
+        top_k=st.session_state.top_k_sample_for_concept,
+        dataset_name=st.session_state.selected_dataset,
+    )
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>High activating class images from train split</p>",
+        unsafe_allow_html=True,
+    )
+    if st.session_state.show_masked_images:
+        show_horizontal_image_row(class_images["masked_highest_images"], captions=class_images["high_activations"])
+    else:
+        show_horizontal_image_row(class_images["highest_images"], captions=class_images["high_activations"])
+
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>Low activating class images from train split</p>",
+        unsafe_allow_html=True,
+    )
+    show_horizontal_image_row(class_images["lowest_images"], captions=class_images["low_activations"])
+
+
+def show_test_sample_images(latent_idx):
+    class_idx = st.session_state.class_names.index(st.session_state.selected_class)
+    threshold = st.session_state.latent_avg_activations[class_idx]
+    class_dict = api.get_images_with_prediction(
+        st.session_state.selected_class,
+        latent_idx,
+        top_k=st.session_state.top_k_sample_for_concept,
+        dataset_name=st.session_state.selected_dataset,
+        threshold=threshold,
+    )
+    high_colors = ["#4CAF50" if x else "#FF0000" for x in class_dict["high_correct"]]
+    low_colors = ["#4CAF50" if x else "#FF0000" for x in class_dict["low_correct"]]
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>High activating class images from test split</p>",
+        unsafe_allow_html=True,
+    )
+    if st.session_state.show_masked_images:
+        high_images = class_dict["masked_highest_images"]
+    else:
+        high_images = class_dict["highest_images"]
+    show_horizontal_image_row(high_images, captions=class_dict["high_activations"], colors=high_colors)
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>Low activating class images from test split</p>",
+        unsafe_allow_html=True,
+    )
+    show_horizontal_image_row(class_dict["lowest_images"], captions=class_dict["low_activations"], colors=low_colors)
+    return class_dict
+
+
+def show_high_low_diff(class_dict):
+    high_acc = class_dict["high_acc"]
+    low_acc = class_dict["low_acc"]
+    mean_acc = class_dict["mean_acc"]
+    num_high = class_dict["num_high"]
+    num_low = class_dict["num_low"]
+
+    acc_diff_pct = ((high_acc - low_acc) / low_acc) * 100 if low_acc != 0 else 0
+
+    st.markdown(
+        f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>High vs Low Group Comparison (Test Split)</p>",
+        unsafe_allow_html=True,
+    )
+    # Side-by-side columns
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**High Group**")
+        st.markdown(f"- Accuracy: **{high_acc:.3f}**")
+        st.markdown(f"- Count: **{num_high}**")
+
+    with col2:
+        st.markdown("**Low Group**")
+        st.markdown(f"- Accuracy: **{low_acc:.3f}**")
+        st.markdown(f"- Count: **{num_low}**")
+
+    with col3:
+        st.markdown("**All Group**")
+        st.markdown(f"- Accuracy: **{mean_acc:.3f}**")
+        st.markdown(f"- Count: **{num_high + num_low}**")
+
+    st.markdown("---")
+    st.markdown(
+        f"<p style='color:{'green' if acc_diff_pct > 0 else 'red'};'>"
+        f"Relative Accuracy Difference: <b>{acc_diff_pct:+.2f}%</b> (High vs. Low)"
+        "</p>",
+        unsafe_allow_html=True,
+    )

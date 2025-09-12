@@ -500,6 +500,7 @@ class Processor:
         split="train",
         resize_size=256,
         top_k=10,
+        threshold=None,
     ):
         class_activations = self.get_class_sae_activation(split=split, class_idx=class_idx)
         latent_activations = class_activations[:, latent_idx]
@@ -512,9 +513,15 @@ class Processor:
             dataset = self.test_dataset
         class_indices = np.where(all_label == class_idx)[0]
 
-        sosrted_indices = np.argsort(latent_activations)[::-1]
-        highest_indices = sosrted_indices[:top_k]
-        lowest_indices = sosrted_indices[-top_k:]
+        if threshold is None:
+            sorted_indices = np.argsort(latent_activations)[::-1]
+            highest_indices = sorted_indices[:top_k]
+            lowest_indices = sorted_indices[-top_k:]
+        else:
+            all_high_indices = np.where(latent_activations >= threshold)[0]
+            all_low_indices = np.where(latent_activations < threshold)[0]
+            highest_indices = all_high_indices[:top_k]
+            lowest_indices = all_low_indices[:top_k]
 
         def _get_image_from_index(class_indices, indices, dataset, resize_size):
             images = []
@@ -531,31 +538,44 @@ class Processor:
 
         highest_image_mask = self.get_sae_mask(highest_images, latent_idx, resize_size)
         masked_highest_images = self.apply_sae_mask_to_input(highest_images, highest_image_mask, reverse=False)
-        return {
+        out = {
             "highest_images": self.encode_images(highest_images),
             "lowest_images": self.encode_images(lowest_images),
             "masked_highest_images": self.encode_images(masked_highest_images),
-            "high_activations": latent_activations[highest_indices].tolist(),
-            "low_activations": latent_activations[lowest_indices].tolist(),
+            "high_activations": [round(x, 3) for x in latent_activations[highest_indices].tolist()],
+            "low_activations": [round(x, 3) for x in latent_activations[lowest_indices].tolist()],
+            "high_indices": class_indices[highest_indices].tolist(),
+            "low_indices": class_indices[lowest_indices].tolist(),
         }
+        if threshold is not None:
+            out["all_high_indices"] = class_indices[all_high_indices]
+            out["all_low_indices"] = class_indices[all_low_indices]
 
-    def get_all_images(self, class_idx, latent_idx, resize_size=256, top_k=10):
-        out_dict = {}
+        return out
 
-        for i, split in enumerate([self.train_split, self.test_split]):
-            images_data = self.get_images_from_class(
-                split=split,
-                class_idx=class_idx,
-                latent_idx=latent_idx,
-                resize_size=resize_size,
-                top_k=top_k,
-            )
-            if i == 0:
-                split_name = "train"
-            else:
-                split_name = "test"
-            out_dict[split_name] = images_data
-        return out_dict
+    def get_images_with_prediction(self, class_idx, latent_idx, resize_size=256, top_k=10, threshold=0.5):
+        class_dict = self.get_images_from_class(
+            class_idx, latent_idx, split=self.test_split, resize_size=resize_size, top_k=top_k, threshold=threshold
+        )
+
+        save_path = f"{self.save_root}/classification/results/{self.dataset_name}/resnet50.csv"
+        all_prediction = pd.read_csv(save_path)
+        preds = all_prediction["pred_label"].to_numpy()
+        gts = all_prediction["gt_label"].to_numpy()
+        is_correct = preds == gts
+        class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
+        class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
+        class_mean_acc = is_correct[
+            np.concatenate([class_dict["all_high_indices"], class_dict["all_low_indices"]])
+        ].mean()
+        class_dict["mean_acc"] = float(class_mean_acc)
+        class_dict["num_high"] = len(class_dict["all_high_indices"])
+        class_dict["num_low"] = len(class_dict["all_low_indices"])
+        class_dict["high_correct"] = is_correct[class_dict["high_indices"]].tolist()
+        class_dict["low_correct"] = is_correct[class_dict["low_indices"]].tolist()
+        del class_dict["all_high_indices"]
+        del class_dict["all_low_indices"]
+        return class_dict
 
     @staticmethod
     def encode_images(image_list):

@@ -51,3 +51,14 @@ def get_images_from_class(
     class_idx: int = Query(...), latent_idx: int = Query(...), top_k: int = Query(...), dataset_name: str = Query(...)
 ):
     return processor.get_images_from_class(class_idx, latent_idx, top_k=top_k)
+
+
+@app.get("/get_images_with_prediction")
+def get_images_with_prediction(
+    class_idx: int = Query(...),
+    latent_idx: int = Query(...),
+    top_k: int = Query(...),
+    dataset_name: str = Query(...),
+    threshold: float = Query(...),
+):
+    return processor.get_images_with_prediction(class_idx, latent_idx, top_k=top_k, threshold=threshold)

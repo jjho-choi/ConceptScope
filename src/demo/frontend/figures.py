@@ -39,6 +39,15 @@ def plot_concept_bar(df, num_concepts=20, height=600):
         font=dict(size=14),
         height=height,
         margin=dict(l=0, r=0, t=0, b=0),
+        legend=dict(
+            x=0.99,
+            y=0.99,  # position inside plot (top-right)
+            xanchor="right",
+            yanchor="top",
+            bgcolor="rgba(255,255,255,0.5)",  # semi-transparent background
+            bordercolor="black",
+            borderwidth=1,
+        ),
     )
     fig.add_shape(
         type="line",
@@ -68,7 +77,7 @@ def plot_top_class_for_concept(latent_avg_activations, selected_class, class_nam
         class_rank = np.where(sorted_indices == selected_class_idx)[0][0] + 1
         class_value = latent_avg_activations[selected_class_idx]
 
-    info = f"ℹ️ Selected class **{selected_class}** for the concept is ranked #{class_rank} with an activation value of {class_value:.2f}."
+    info = f"ℹ️ **{selected_class}** class has a concept strength ranked #{class_rank} among all classes, with an activation value of {class_value:.2f}."
 
     bar_colors = ["orange" if idx == selected_class_idx else "#888" for idx in high_class_indices]
 
@@ -86,8 +95,8 @@ def plot_top_class_for_concept(latent_avg_activations, selected_class, class_nam
 
     fig.update_layout(
         # title=f"Top-{top_k} Class Activations for Selected Concept",
-        xaxis_title="Average Activation",
-        yaxis_title="Class Name",
+        xaxis_title="Class Name",
+        yaxis_title="Concept Strength",
         margin=dict(l=40, r=20, t=50, b=80),
         # height=VisualizationConfig.figure_height,
     )

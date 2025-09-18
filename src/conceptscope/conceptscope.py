@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import torch
 from PIL import Image
+from sklearn.metrics import silhouette_score
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
 from tqdm import tqdm
@@ -224,10 +225,20 @@ class ConceptScope(SAEModule):
         for cls_idx in tqdm(range(len(class_names)), desc="Categorizing concepts"):
             out_dict[str(cls_idx)] = {"target": [], "context": []}
             alignment_scores = np.array(
-                [score_dict["concept_only_label_sim"] for score_dict in alignment_scores_dict[str(cls_idx)].values()]
+                [score_dict["alignment_score"] for score_dict in alignment_scores_dict[str(cls_idx)].values()]
             )
 
             normalized_scores = (alignment_scores - alignment_scores.mean()) / alignment_scores.std()
+
+            silhouette_scores = np.zeros(len(alignment_scores))
+            for i, alignment_score in enumerate(alignment_scores):
+                label = (alignment_scores >= alignment_score).astype(int)
+                if np.unique(label).shape[0] == 1:
+                    silhouette_scores[i] = 0.0
+                    continue
+                silhouette_scores[i] = silhouette_score(alignment_scores.reshape(-1, 1), label)
+            # target_threshold = alignment_scores[silhouette_scores.argmax()]
+            max_silhouette_score = silhouette_scores.max()
 
             context_act_means = []
             for i, (latent_idx, score_dict) in enumerate(alignment_scores_dict[str(cls_idx)].items()):
@@ -236,9 +247,11 @@ class ConceptScope(SAEModule):
                         {
                             "latent_idx": int(latent_idx),
                             "latent_name": self.concept_dict[str(latent_idx)],
-                            "alignment_score": score_dict["concept_only_label_sim"],
+                            "alignment_score": score_dict["alignment_score"],
                             "mean_activation": score_dict["mean_activation"],
                             "normalized_alignment_score": float(normalized_scores[i]),
+                            "target_threshold": float(target_threshold),
+                            "max_silhouette_score": float(max_silhouette_score),
                         }
                     )
                 else:
@@ -249,6 +262,8 @@ class ConceptScope(SAEModule):
                             "alignment_score": score_dict["alignment_score"],
                             "mean_activation": score_dict["mean_activation"],
                             "normalized_alignment_score": float(normalized_scores[i]),
+                            "target_threshold": float(target_threshold),
+                            "max_silhouette_score": float(max_silhouette_score),
                         }
                     )
                     context_act_means.append(score_dict["mean_activation"])
@@ -382,6 +397,25 @@ class ConceptScope(SAEModule):
                 scores["concept_exclude_image_label_sim"][i:end_idx, j] = class_scores[
                     "concept_exclude_image_label_sim"
                 ]
+
+        # succiency = 1 - (
+        #     abs(scores["orginal_image_label_sim"] - scores["concept_only_label_sim"])
+        #     / scores["orginal_image_label_sim"]
+        # )
+        # succiency = succiency.clip(0, 1)
+        # necessary = (
+        #     abs(scores["orginal_image_label_sim"] - scores["concept_exclude_image_label_sim"])
+        #     / scores["orginal_image_label_sim"]
+        # )
+
+        # necessary = necessary.clip(0, 1)
+
+        # sufficient_scores = succiency.mean(0)
+        # necessary_scores = necessary.mean(0)
+        # alignment_score = (sufficient_scores + necessary_scores) / 2
+        # sufficient_std = succiency.std(0)
+        # necessary_std = necessary.std(0)
+        # alignment_std = (sufficient_std + necessary_std) / 2
 
         sufficient_scores = (scores["concept_only_label_sim"] / scores["orginal_image_label_sim"]).mean(0)
         necessary_scores = (scores["orginal_image_label_sim"] / scores["concept_exclude_image_label_sim"]).mean(0)

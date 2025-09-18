@@ -403,7 +403,7 @@ class Processor:
             data["latent_idx"].append(slice_info["latent_idx"])
             data["latent_name"].append(slice_info["latent_name"])
             data["Mean"].append(slice_info["mean_activation"])
-            data["Class aligned"].append(slice_info["normalized_alignment_score"])
+            data["Class aligned"].append(slice_info["alignment_score"])
             data["slice_idx"].append(i)
             if "bias" not in slice_info:
                 data["Concept Type"].append("target")

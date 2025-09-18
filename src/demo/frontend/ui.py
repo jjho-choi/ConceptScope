@@ -133,6 +133,8 @@ def show_class_concepts(df):
                 "Alignment Score",
                 format="%.2f",
                 help="Alignment score for the concept",
+                min_value=df["Class aligned"].min(),
+                max_value=df["Class aligned"].max(),
             ),
         },
         hide_index=True,

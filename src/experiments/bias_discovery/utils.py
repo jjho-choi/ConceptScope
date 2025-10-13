@@ -18,7 +18,7 @@ def get_class_sae_activation(
     with h5py.File(save_path, "r") as hf:
         if f"activations_{class_idx}" in hf:
             activations = hf[f"activations_{class_idx}"][:]
-        else:
+        else:get_high_activating_images
             raise ValueError(f"No activations found for class index {class_idx} in {save_path}")
     return activations
 

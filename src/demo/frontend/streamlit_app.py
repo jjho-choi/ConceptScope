@@ -7,10 +7,14 @@ from src.demo.config import ConceptListViewConfig
 
 
 def init_state():
-    st.session_state.selected_dataset = None
-    st.session_state.selected_class = None
-    st.session_state.selected_concept = 0
-    st.session_state.refresh_key = 0
+    if "selected_dataset" not in st.session_state:
+        st.session_state.selected_dataset = None
+    if "selected_class" not in st.session_state:
+        st.session_state.selected_class = None
+    if "selected_concept" not in st.session_state:
+        st.session_state.selected_concept = 0
+    if "refresh_key" not in st.session_state:
+        st.session_state.refresh_key = 0
 
 
 def load_class_distribution(

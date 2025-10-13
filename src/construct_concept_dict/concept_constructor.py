@@ -2,14 +2,16 @@ import base64
 import json
 import os
 from typing import Dict, Tuple
-from PIL import Image
+
+import dotenv
 import h5py
 import numpy as np
 import openai
 import torch
+from dotenv import load_dotenv
+from PIL import Image
 from tqdm import tqdm
 
-from credential import OPENAIKEY
 from src.conceptscope.sae_module import SAEModule
 from src.utils.image_dataset_loader import ImageDatasetLoader
 from src.utils.processor import BatchIterator, H5ActivationtWriter, ImageProcessor
@@ -20,7 +22,8 @@ from src.utils.utils import (
     plot_images,
 )
 
-openai.api_key = OPENAIKEY
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 class ConceptDictConstructor(SAEModule):
@@ -189,6 +192,8 @@ class ConceptDictConstructor(SAEModule):
 
         activation_writer = H5ActivationtWriter(save_path=h5_path, feature_dim=self.cfg.d_sae)
         class_mean_var_activations = np.zeros((2, self.num_classes, self.cfg.d_sae), dtype=np.float32)
+        thresholds = [0, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5]
+        frequency_dict = {threshold: np.zeros((self.num_classes, self.cfg.d_sae)) for threshold in thresholds}
         storage = self.initialize_storage_tensors()
         activation_counts = np.zeros(self.cfg.d_sae, dtype=np.int32)
         for i in tqdm(range(self.num_classes), desc=f"Processing classes in {self.dataset_name}"):
@@ -208,6 +213,9 @@ class ConceptDictConstructor(SAEModule):
             class_mean_var_activations[0][i] = class_activations.mean(axis=0)
             class_mean_var_activations[1][i] = class_activations.var(axis=0)
 
+            for threshold in thresholds:
+                frequency_dict[threshold][i] = np.where(class_activations > threshold, 1, 0).mean(axis=0)
+
         storage["sae_mean_acts"] /= storage["sae_sparsity"]
         storage["sae_sparsity"] /= len(self.class_labels)
         self.save_sae_stat_storage(
@@ -222,6 +230,13 @@ class ConceptDictConstructor(SAEModule):
                     data=class_mean_var_activations,
                     compression="gzip",
                 )
+
+                for threshold in thresholds:
+                    hf.create_dataset(
+                        f"frequency_{threshold}",
+                        data=frequency_dict[threshold],
+                        compression="gzip",
+                    )
 
         return activation_counts
 

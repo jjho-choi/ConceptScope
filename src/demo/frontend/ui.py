@@ -227,6 +227,7 @@ def show_train_sample_images(latent_idx):
 def show_test_sample_images(latent_idx):
     class_idx = st.session_state.class_names.index(st.session_state.selected_class)
     threshold = st.session_state.latent_avg_activations[class_idx]
+    threshold = 0.5
     class_dict = api.get_images_with_prediction(
         st.session_state.selected_class,
         latent_idx,
@@ -259,6 +260,7 @@ def show_high_low_diff(class_dict):
     mean_acc = class_dict["mean_acc"]
     num_high = class_dict["num_high"]
     num_low = class_dict["num_low"]
+    train_ratio = class_dict["num_high_train_ratio"]
 
     acc_diff_pct = ((high_acc - low_acc) / low_acc) * 100 if low_acc != 0 else 0
 
@@ -273,6 +275,7 @@ def show_high_low_diff(class_dict):
         st.markdown("**High Group**")
         st.markdown(f"- Accuracy: **{high_acc:.3f}**")
         st.markdown(f"- Count: **{num_high}**")
+        st.markdown(f"- Train Ratio: **{train_ratio:.3f}**")
 
     with col2:
         st.markdown("**Low Group**")

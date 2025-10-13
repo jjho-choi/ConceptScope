@@ -61,4 +61,6 @@ def get_images_with_prediction(
     dataset_name: str = Query(...),
     threshold: float = Query(...),
 ):
-    return processor.get_images_with_prediction(class_idx, latent_idx, top_k=top_k, threshold=threshold)
+    return processor.get_images_with_prediction(
+        class_idx, latent_idx, top_k=top_k, threshold=threshold, dataset_name=dataset_name.lower()
+    )

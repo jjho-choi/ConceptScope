@@ -37,6 +37,7 @@ class ConceptScope(SAEModule):
         self.num_samples_for_alignment = num_samples_for_alignment
         self.top_k_for_alignment = top_k_for_alignment
         self.concept_dict, self.valid_latents = self.load_concept_dict()
+        self.frequency_thresholds = [0, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5]
 
     def load_concept_dict(self):
         save_path = f"{self.checkpoint_path}/concept_dict.json"
@@ -83,6 +84,7 @@ class ConceptScope(SAEModule):
             class_labels = np.array(dataset[self.label_key])
         num_classes = len(class_names)
         class_mean_var_activations = np.zeros((2, num_classes, self.cfg.d_sae), dtype=np.float32)
+        frequency_dict = {threshold: np.zeros((num_classes, self.cfg.d_sae)) for threshold in self.frequency_thresholds}
 
         for i in tqdm(range(num_classes), desc=f"Processing classes in {dataset_name}"):
             if str(i) in out_dict:
@@ -96,26 +98,32 @@ class ConceptScope(SAEModule):
             class_subset = dataset.select(class_indices)
 
             if activation_writer.check_dataset_exists(i):
-                class_avg_activations, sampled_latent_activations, sampled_images = (
+                class_avg_activations, frequency_dict_cls, sampled_latent_activations, sampled_images = (
                     self.get_sampled_image_with_activations(
                         latent_save_dir, i, dataset, class_indices, batch_size=batch_size
                     )
                 )
             else:
-                class_avg_activations, sampled_latent_activations, sampled_images = self.process_class(
-                    class_subset,
-                    class_indices,
-                    activation_writer,
-                    class_mean_var_activations,
-                    cls_idx=i,
-                    batch_size=batch_size,
+                class_avg_activations, frequency_dict_cls, sampled_latent_activations, sampled_images = (
+                    self.process_class(
+                        class_subset,
+                        class_indices,
+                        activation_writer,
+                        class_mean_var_activations,
+                        cls_idx=i,
+                        batch_size=batch_size,
+                    )
                 )
+
+            for threshold in self.frequency_thresholds:
+                frequency_dict[threshold][i] = frequency_dict_cls[threshold]
 
             score = self.compute_alignment_score_per_class(
                 sampled_latent_activations,
                 sampled_images,
                 class_avg_activations,
                 class_names[i],
+                frequency_dict_cls,
                 batch_size=batch_size,
             )
             out_dict[str(i)] = score
@@ -131,11 +139,28 @@ class ConceptScope(SAEModule):
                     data=class_mean_var_activations,
                     compression="gzip",
                 )
+
+            if "frequency_0" not in hf:
+                for threshold in self.frequency_thresholds:
+                    hf.create_dataset(
+                        f"frequency_{threshold}",
+                        data=frequency_dict[threshold],
+                        compression="gzip",
+                    )
         return out_dict
 
     def get_sampled_image_with_activations(self, save_path, cls_idx, dataset, class_indices, batch_size=64):
         with h5py.File(save_path, "r") as hf:
             mean_activations = hf["sae_mean_var_activations"][:][0][cls_idx]
+            if "frequency_0" not in hf:
+                frequency_dict = {}
+                class_activations = hf[f"activations_{cls_idx}"][:]
+                for threshold in self.frequency_thresholds:
+                    frequency_dict[threshold] = np.where(class_activations > threshold, 1, 0).mean(axis=0)
+            else:
+                frequency_dict = {
+                    threshold: hf[f"frequency_{threshold}"][:][cls_idx] for threshold in self.frequency_thresholds
+                }
 
         top_k = min(self.num_samples_for_alignment, len(class_indices))
         sampled_indices = set(random.sample(class_indices.tolist(), k=top_k))
@@ -162,7 +187,7 @@ class ConceptScope(SAEModule):
                     image = Image.open(image).convert("RGB")
                 sampled_images.append(image)
 
-        return mean_activations, sampled_activations, sampled_images
+        return mean_activations, frequency_dict, sampled_activations, sampled_images
 
     def run(
         self,
@@ -242,30 +267,22 @@ class ConceptScope(SAEModule):
 
             context_act_means = []
             for i, (latent_idx, score_dict) in enumerate(alignment_scores_dict[str(cls_idx)].items()):
+                common_dict = {
+                    "latent_idx": int(latent_idx),
+                    "latent_name": self.concept_dict[str(latent_idx)],
+                    "alignment_score": score_dict["alignment_score"],
+                    "mean_activation": score_dict["mean_activation"],
+                    "normalized_alignment_score": float(normalized_scores[i]),
+                    "target_threshold": float(target_threshold),
+                    "max_silhouette_score": float(max_silhouette_score),
+                }
+                for threshold in self.frequency_thresholds:
+                    common_dict[f"frequency_{threshold}"] = score_dict[f"frequency_{threshold}"]
+
                 if normalized_scores[i] >= target_threshold:
-                    out_dict[str(cls_idx)]["target"].append(
-                        {
-                            "latent_idx": int(latent_idx),
-                            "latent_name": self.concept_dict[str(latent_idx)],
-                            "alignment_score": score_dict["alignment_score"],
-                            "mean_activation": score_dict["mean_activation"],
-                            "normalized_alignment_score": float(normalized_scores[i]),
-                            "target_threshold": float(target_threshold),
-                            "max_silhouette_score": float(max_silhouette_score),
-                        }
-                    )
+                    out_dict[str(cls_idx)]["target"].append(common_dict)
                 else:
-                    out_dict[str(cls_idx)]["context"].append(
-                        {
-                            "latent_idx": int(latent_idx),
-                            "latent_name": self.concept_dict[str(latent_idx)],
-                            "alignment_score": score_dict["alignment_score"],
-                            "mean_activation": score_dict["mean_activation"],
-                            "normalized_alignment_score": float(normalized_scores[i]),
-                            "target_threshold": float(target_threshold),
-                            "max_silhouette_score": float(max_silhouette_score),
-                        }
-                    )
+                    out_dict[str(cls_idx)]["context"].append(common_dict)
                     context_act_means.append(score_dict["mean_activation"])
             context_act_means = np.array(context_act_means)
             bias_threshold = context_act_means.mean() + bias_threshold_sigma * context_act_means.std()
@@ -354,7 +371,14 @@ class ConceptScope(SAEModule):
         }
 
     def compute_alignment_score_per_class(
-        self, sampled_activatons, sampled_images, class_mean_activation, class_name, batch_size=64, resize_size=224
+        self,
+        sampled_activatons,
+        sampled_images,
+        class_mean_activation,
+        class_name,
+        frequency_dict,
+        batch_size=64,
+        resize_size=224,
     ):
         class_label_embedding = self._get_class_label_embedding(class_name)
 
@@ -445,6 +469,9 @@ class ConceptScope(SAEModule):
                 "orginal_image_label_sim_std": round(scores["orginal_image_label_sim"][:, j].std(), 4),
             }
 
+            for threshold in self.frequency_thresholds:
+                class_scores[str(token_idx)][f"frequency_{threshold}"] = round(frequency_dict[threshold][token_idx], 4)
+
         return class_scores
 
     def process_class(
@@ -459,6 +486,7 @@ class ConceptScope(SAEModule):
         sampled_latent_activations = []
         sampled_images = []
         class_activations = np.zeros((num_samples, self.cfg.d_sae), dtype=np.float32)
+        frequency_dict = {}
 
         for start_idx, end_idx, batch in batch_iterator:
             batch_inputs = ImageProcessor.process_model_inputs(batch, self.vit, self.device)
@@ -492,6 +520,8 @@ class ConceptScope(SAEModule):
 
         class_mean_var_activations[0][cls_idx] = avg_sae_latents
         class_mean_var_activations[1][cls_idx] = std_sae_latents
+        for threshold in self.frequency_thresholds:
+            frequency_dict[threshold] = np.where(class_activations > threshold, 1, 0).mean(axis=0)
 
         if not activation_writer.check_dataset_exists(cls_idx):
             activation_writer.create_cls_dataset(cls_idx, num_samples)
@@ -500,7 +530,7 @@ class ConceptScope(SAEModule):
                 cls_idx=cls_idx,
             )
 
-        return avg_sae_latents, sampled_latent_activations, sampled_images
+        return avg_sae_latents, frequency_dict, sampled_latent_activations, sampled_images
 
     def extract_sae_latent_activations_and_save(self, file_name, dataset, dataset_name, batch_size=64):
         activation_writer = H5ActivationtWriter(save_path=file_name, feature_dim=self.cfg.d_sae)

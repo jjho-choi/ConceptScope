@@ -390,6 +390,7 @@ class Processor:
             "slice_idx": [],
             "thumbnail_image": [],
             "full_image": [],
+            "frequency": [],
         }
 
         context_means = []
@@ -399,6 +400,8 @@ class Processor:
             self.concept_categorization_dict[str(selected_class)]["target"]
             + self.concept_categorization_dict[str(selected_class)]["context"][:len_context]
         )
+
+        class_activations = self.get_class_sae_activation(split="train", class_idx=selected_class)
         for i, slice_info in enumerate(all_slices):
             data["latent_idx"].append(slice_info["latent_idx"])
             data["latent_name"].append(slice_info["latent_name"])
@@ -420,13 +423,20 @@ class Processor:
             data["thumbnail_image"].append(thumbnail_image)
             data["full_image"].append(full_image)
 
+            latent_activations = class_activations[:, int(slice_info["latent_idx"])]
+            data["frequency"].append(np.where(latent_activations > 0.5, 1, 0).mean())
+
         context_means = np.array(context_means)
         bias_threshold = np.mean(context_means) + bias_sigma * np.std(context_means)
+
+        alignment_scores = np.array(data["Class aligned"])
+        target_threshold = alignment_scores.mean() + 1.0 * alignment_scores.std()
 
         df = pd.DataFrame(data)
         color_map = {"target": "green", "context": "orange", "bias": "red"}
         df["Color"] = df["Concept Type"].map(color_map)
         df["bias_threshold"] = bias_threshold
+        df["target_threshold"] = target_threshold
 
         df = df.sort_values("Class aligned", ascending=True).reset_index(drop=True)
         return df
@@ -501,6 +511,7 @@ class Processor:
         resize_size=256,
         top_k=10,
         threshold=None,
+        dataset_name=None,
     ):
         class_activations = self.get_class_sae_activation(split=split, class_idx=class_idx)
         latent_activations = class_activations[:, latent_idx]
@@ -520,8 +531,21 @@ class Processor:
         else:
             all_high_indices = np.where(latent_activations >= threshold)[0]
             all_low_indices = np.where(latent_activations < threshold)[0]
-            highest_indices = all_high_indices[:top_k]
-            lowest_indices = all_low_indices[:top_k]
+            all_high_indices = all_high_indices[np.argsort(latent_activations[all_high_indices])[::-1]]
+            all_low_indices = all_low_indices[np.argsort(latent_activations[all_low_indices])[::-1]]
+
+            sorted_indices = np.argsort(latent_activations)[::-1]
+            highest_indices = sorted_indices[:top_k]
+            lowest_indices = sorted_indices[-top_k:]
+
+        # if threshold is None:
+        #     sorted_indices = np.argsort(latent_activations)[::-1]
+        #     highest_indices = sorted_indices[:top_k]
+        #     lowest_indices = sorted_indices[-top_k:]
+        # else:
+
+        #     highest_indices = all_high_indices[:top_k]
+        #     lowest_indices = all_low_indices[:top_k]
 
         def _get_image_from_index(class_indices, indices, dataset, resize_size):
             images = []
@@ -553,7 +577,9 @@ class Processor:
 
         return out
 
-    def get_images_with_prediction(self, class_idx, latent_idx, resize_size=256, top_k=10, threshold=0.5):
+    def get_images_with_prediction(
+        self, class_idx, latent_idx, resize_size=256, top_k=10, threshold=0.5, dataset_name=None
+    ):
         class_dict = self.get_images_from_class(
             class_idx, latent_idx, split=self.test_split, resize_size=resize_size, top_k=top_k, threshold=threshold
         )
@@ -563,8 +589,12 @@ class Processor:
         preds = all_prediction["pred_label"].to_numpy()
         gts = all_prediction["gt_label"].to_numpy()
         is_correct = preds == gts
-        class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
-        class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
+        if dataset_name == "imagenet":
+            class_dict["high_acc"] = float(is_correct[class_dict["high_indices"]].mean())
+            class_dict["low_acc"] = float(is_correct[class_dict["low_indices"]].mean())
+        else:
+            class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
+            class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
         class_mean_acc = is_correct[
             np.concatenate([class_dict["all_high_indices"], class_dict["all_low_indices"]])
         ].mean()
@@ -575,6 +605,13 @@ class Processor:
         class_dict["low_correct"] = is_correct[class_dict["low_indices"]].tolist()
         del class_dict["all_high_indices"]
         del class_dict["all_low_indices"]
+
+        train_activations = self.get_class_sae_activation(split="train", class_idx=class_idx)[:, latent_idx]
+        num_high_train = np.where(train_activations >= threshold)[0].shape[0]
+        num_high_train_ratio = num_high_train / train_activations.shape[0]
+        class_dict["num_high_train"] = num_high_train
+        class_dict["num_high_train_ratio"] = num_high_train_ratio
+
         return class_dict
 
     @staticmethod

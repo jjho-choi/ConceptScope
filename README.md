@@ -1,8 +1,26 @@
 # ConceptScope: Characterizing Dataset Bias via Disentangled Visual Concepts
+**Official Repository – NeurIPS 2025**
 
-ConceptScope is a framework for analyzing dataset bias by disentangling visual concepts using Sparse Autoencoders (SAEs).  
-It provides tools to train SAEs, extract meaningful latents, run concept categorization, and interactively explore results.
+<div align="center">
+  <img src="./assets/overview.png" alt="ConceptScope Teaser" width="80%">
+</div>
 
+<p align="center">
+  <a href="https://conceptscope.github.io">🌐 Project Page</a> |
+  <a href="https://drive.google.com/file/d/1OuSB27qIxaXUpn0tXUvWW7irv-56rYoM/preview">🎬 Demo Video</a> |
+  <a href="#run-demo">🚀 Run Interactive Demo</a>
+</p>
+
+
+ConceptScope is a framework for analyzing vision dataset bias by uncovering and quantifying visual concepts using Sparse Autoencoders (SAEs).
+This repository provides:
+- Training SAEs on vision models (e.g., CLIP) and extracting meaningful latent concepts
+
+- Categorizing concepts into target, context, and bias types
+
+- Evaluating concept prediction and segmentation, and benchmarking bias discovery tasks
+
+- An interactive demo for visualizing and analyzing dataset bias
 
 ## Table of Contents
 

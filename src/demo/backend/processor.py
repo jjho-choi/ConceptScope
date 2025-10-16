@@ -382,8 +382,8 @@ class Processor:
 
     def get_concept_distribution(self, selected_class, bias_sigma=1, max_concepts=20):
         data = {
-            "Class aligned": [],
-            "Mean": [],
+            "alignment score": [],
+            "concept strength": [],
             "Concept Type": [],
             "latent_idx": [],
             "latent_name": [],
@@ -405,8 +405,8 @@ class Processor:
         for i, slice_info in enumerate(all_slices):
             data["latent_idx"].append(slice_info["latent_idx"])
             data["latent_name"].append(slice_info["latent_name"])
-            data["Mean"].append(slice_info["mean_activation"])
-            data["Class aligned"].append(slice_info["alignment_score"])
+            data["concept strength"].append(slice_info["mean_activation"])
+            data["alignment score"].append(slice_info["alignment_score"])
             data["slice_idx"].append(i)
             if "bias" not in slice_info:
                 data["Concept Type"].append("target")
@@ -429,7 +429,7 @@ class Processor:
         context_means = np.array(context_means)
         bias_threshold = np.mean(context_means) + bias_sigma * np.std(context_means)
 
-        alignment_scores = np.array(data["Class aligned"])
+        alignment_scores = np.array(data["alignment score"])
         target_threshold = alignment_scores.mean() + 1.0 * alignment_scores.std()
 
         df = pd.DataFrame(data)
@@ -438,7 +438,7 @@ class Processor:
         df["bias_threshold"] = bias_threshold
         df["target_threshold"] = target_threshold
 
-        df = df.sort_values("Class aligned", ascending=True).reset_index(drop=True)
+        df = df.sort_values("alignment score", ascending=True).reset_index(drop=True)
         return df
 
     def get_class_sae_activation(self, split, class_idx, dataset_name=None):
@@ -589,12 +589,12 @@ class Processor:
         preds = all_prediction["pred_label"].to_numpy()
         gts = all_prediction["gt_label"].to_numpy()
         is_correct = preds == gts
-        if dataset_name == "imagenet":
-            class_dict["high_acc"] = float(is_correct[class_dict["high_indices"]].mean())
-            class_dict["low_acc"] = float(is_correct[class_dict["low_indices"]].mean())
-        else:
-            class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
-            class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
+        # if dataset_name == "imagenet":
+        #     class_dict["high_acc"] = float(is_correct[class_dict["high_indices"]].mean())
+        #     class_dict["low_acc"] = float(is_correct[class_dict["low_indices"]].mean())
+        # else:
+        class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
+        class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
         class_mean_acc = is_correct[
             np.concatenate([class_dict["all_high_indices"], class_dict["all_low_indices"]])
         ].mean()

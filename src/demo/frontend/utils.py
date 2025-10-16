@@ -15,7 +15,7 @@ def process_concept_distribution(df):
 
     df["thumbnail_image"] = df["thumbnail_image"].apply(lambda x: get_image_data_url(x))
     df["full_image"] = df["full_image"].apply(lambda x: get_image_data_url(x))
-    df.sort_values(by="Mean", ascending=False, inplace=True)
+    df.sort_values(by="concept strength", ascending=False, inplace=True)
 
     df = df.reset_index(drop=True)
     target_indices = df[df["Concept Type"] == "target"].index

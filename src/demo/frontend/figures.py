@@ -64,17 +64,17 @@ def plot_concept_bar(df, num_concepts=20, height=600):
 
     fig = px.scatter(
         subset,
-        x="Class aligned",
-        y="Mean",
+        x="alignment score",
+        y="concept strength",
         color="frequency",
         color_continuous_scale="Viridis",  # or any other continuous colormap
         text="latent_name",
         hover_data={
-            "Mean": True,
+            "concept strength": ":.3f",
             "latent_name": True,
             "latent_idx": True,
-            "frequency": True,
-            "Class aligned": True,
+            "frequency": ":.3f",
+            "alignment score": ":.3f",
         },
     )
 
@@ -84,8 +84,8 @@ def plot_concept_bar(df, num_concepts=20, height=600):
     target_threshold = subset["target_threshold"].iloc[0]
     bias_threshold = subset["bias_threshold"].iloc[0]
 
-    min_mean = subset["Mean"].min()
-    max_mean = subset["Mean"].max()
+    min_mean = subset["concept strength"].min()
+    max_mean = subset["concept strength"].max()
 
     fig.add_shape(
         type="line",
@@ -99,7 +99,7 @@ def plot_concept_bar(df, num_concepts=20, height=600):
     # Add horizontal line at bias_threshold (red dotted)
     fig.add_shape(
         type="line",
-        x0=subset["Class aligned"].min(),
+        x0=subset["alignment score"].min(),
         x1=target_threshold,
         y0=bias_threshold,
         y1=bias_threshold,
@@ -107,13 +107,13 @@ def plot_concept_bar(df, num_concepts=20, height=600):
     )
 
     fig.update_layout(
-        xaxis_title="Class aligned",
+        xaxis_title="Alignment Score",
         yaxis_title="Concept Strength",
         template="plotly_white",
         font=dict(size=14),
         height=height,
         margin=dict(l=0, r=0, t=0, b=0),
-        coloraxis_colorbar=dict(title="frequency"),
+        coloraxis_colorbar=dict(title="Frequency"),
     )
 
     return fig
@@ -136,7 +136,7 @@ def plot_top_class_for_concept(latent_avg_activations, selected_class, class_nam
         class_rank = np.where(sorted_indices == selected_class_idx)[0][0] + 1
         class_value = latent_avg_activations[selected_class_idx]
 
-    info = f"ℹ️ **{selected_class}** class has a concept strength ranked #{class_rank} among all classes, with an activation value of {class_value:.2f}."
+    info = f"ℹ️ **{selected_class}** class has a concept strength ranked #{class_rank} among all classes, with an activation value of {class_value:.3f}."
 
     bar_colors = ["orange" if idx == selected_class_idx else "#888" for idx in high_class_indices]
 
@@ -144,7 +144,7 @@ def plot_top_class_for_concept(latent_avg_activations, selected_class, class_nam
         go.Bar(
             x=top_class_names,
             y=top_values,
-            text=[f"{v:.2f}" for v in top_values],
+            text=[f"{v:.3f}" for v in top_values],
             textposition="auto",
             marker=dict(color=bar_colors),
             hovertext=hover_text,

@@ -2,6 +2,7 @@ class AppConfig:
     dataset_options = ["ImageNet", "SUN397", "Food101", "Waterbird"]
     default_dataset = "ImageNet"
     mid_font_size = 18
+    small_font_size = 10
 
 
 class ClassOverviewConfig:

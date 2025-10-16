@@ -115,8 +115,8 @@ def show_class_concepts(df):
                 "full_image",
                 "latent_name",
                 "Concept Type",
-                "Mean",
-                "Class aligned",
+                "concept strength",
+                "alignment score",
             ]
         ],
         column_config={
@@ -125,16 +125,16 @@ def show_class_concepts(df):
             ),
             "latent_name": st.column_config.TextColumn("Concept Name"),
             "Concept Type": st.column_config.TextColumn("Concept Type"),
-            "Mean": st.column_config.ProgressColumn(
+            "concept strength": st.column_config.ProgressColumn(
                 "Concept Strength",
-                format="%.2f",
+                format="%.3f",
             ),
-            "Class aligned": st.column_config.ProgressColumn(
+            "alignment score": st.column_config.ProgressColumn(
                 "Alignment Score",
-                format="%.2f",
+                format="%.3f",
                 help="Alignment score for the concept",
-                min_value=df["Class aligned"].min(),
-                max_value=df["Class aligned"].max(),
+                min_value=df["alignment score"].min(),
+                max_value=df["alignment score"].max(),
             ),
         },
         hide_index=True,
@@ -227,7 +227,6 @@ def show_train_sample_images(latent_idx):
 def show_test_sample_images(latent_idx):
     class_idx = st.session_state.class_names.index(st.session_state.selected_class)
     threshold = st.session_state.latent_avg_activations[class_idx]
-    threshold = 0.5
     class_dict = api.get_images_with_prediction(
         st.session_state.selected_class,
         latent_idx,
@@ -237,6 +236,7 @@ def show_test_sample_images(latent_idx):
     )
     high_colors = ["#4CAF50" if x else "#FF0000" for x in class_dict["high_correct"]]
     low_colors = ["#4CAF50" if x else "#FF0000" for x in class_dict["low_correct"]]
+
     st.markdown(
         f"<p style='font-size:{AppConfig.mid_font_size}px; font-weight:bold;'>High activating class images from test split</p>",
         unsafe_allow_html=True,
@@ -251,6 +251,14 @@ def show_test_sample_images(latent_idx):
         unsafe_allow_html=True,
     )
     show_horizontal_image_row(class_dict["lowest_images"], captions=class_dict["low_activations"], colors=low_colors)
+
+    st.markdown(
+        f"<span style='display:inline-block;width:16px;height:16px;background-color:#4CAF50;margin-right:4px;vertical-align:middle;'></span>"
+        f"<span style='font-size:{AppConfig.small_font_size}px;'>Correct</span> &nbsp;&nbsp; "
+        f"<span style='display:inline-block;width:16px;height:16px;background-color:#FF0000;margin-right:4px;vertical-align:middle;'></span>"
+        f"<span style='font-size:{AppConfig.small_font_size}px;'>Incorrect</span>",
+        unsafe_allow_html=True,
+    )
     return class_dict
 
 
@@ -260,7 +268,6 @@ def show_high_low_diff(class_dict):
     mean_acc = class_dict["mean_acc"]
     num_high = class_dict["num_high"]
     num_low = class_dict["num_low"]
-    train_ratio = class_dict["num_high_train_ratio"]
 
     acc_diff_pct = ((high_acc - low_acc) / low_acc) * 100 if low_acc != 0 else 0
 
@@ -275,7 +282,6 @@ def show_high_low_diff(class_dict):
         st.markdown("**High Group**")
         st.markdown(f"- Accuracy: **{high_acc:.3f}**")
         st.markdown(f"- Count: **{num_high}**")
-        st.markdown(f"- Train Ratio: **{train_ratio:.3f}**")
 
     with col2:
         st.markdown("**Low Group**")

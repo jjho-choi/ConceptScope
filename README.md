@@ -6,7 +6,7 @@
 </div>
 
 <p align="center">
-  <a href="https://conceptscope.github.io">🌐 Project Page</a> |
+  <a href="https://jjho-choi.github.io/ConcepScope-projectpage/">🌐 Project Page</a> |
   <a href="https://drive.google.com/file/d/1OuSB27qIxaXUpn0tXUvWW7irv-56rYoM/preview">🎬 Demo Video</a> |
   <a href="#run-demo">🚀 Run Interactive Demo</a>
 </p>

@@ -6,7 +6,6 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from PIL import Image
 
-from src.sae_training.config import Config
 from src.sae_training.hooked_vit import HookedVisionTransformer
 
 SAE_DIM = 49152
@@ -23,13 +22,19 @@ def process_model_inputs(
     if isinstance(batch[image_key][0], Image.Image):
         images = batch[image_key]
     else:
-        images = [Image.open(image_path).convert("RGB") for image_path in batch[image_key]]
+        images = [
+            Image.open(image_path).convert("RGB") for image_path in batch[image_key]
+        ]
 
     if process_labels:
         labels = [f"A photo of a {label}" for label in batch["label"]]
-        return vit.processor(images=images, text=labels, return_tensors="pt", padding=True).to(device)
+        return vit.processor(
+            images=images, text=labels, return_tensors="pt", padding=True
+        ).to(device)
 
-    return vit.processor(images=images, text="", return_tensors="pt", padding=True).to(device)
+    return vit.processor(images=images, text="", return_tensors="pt", padding=True).to(
+        device
+    )
 
 
 def get_model_activations(
@@ -99,7 +104,9 @@ def get_scheduler(scheduler_name: Optional[str], optimizer: optim.Optimizer, **k
     elif scheduler_name.lower() == "cosineannealing":
         training_steps = kwargs.get("training_steps")
         eta_min = kwargs.get("lr_end", 0)
-        return lr_scheduler.CosineAnnealingLR(optimizer, T_max=training_steps, eta_min=eta_min)
+        return lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=training_steps, eta_min=eta_min
+        )
     elif scheduler_name.lower() == "cosineannealingwarmup":
         warm_up_steps = kwargs.get("warm_up_steps", 0)
         training_steps = kwargs.get("training_steps")
@@ -111,6 +118,8 @@ def get_scheduler(scheduler_name: Optional[str], optimizer: optim.Optimizer, **k
         eta_min = kwargs.get("lr_end", 0)
         num_cycles = kwargs.get("num_cycles", 1)
         T_0 = training_steps // num_cycles
-        return lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=T_0, eta_min=eta_min)
+        return lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer, T_0=T_0, eta_min=eta_min
+        )
     else:
         raise ValueError(f"Unsupported scheduler: {scheduler_name}")

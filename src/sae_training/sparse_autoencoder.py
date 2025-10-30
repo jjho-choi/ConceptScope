@@ -32,7 +32,9 @@ class SparseAutoencoder(HookedRootModule):
         self.cfg = cfg
         self.d_in = cfg.d_in
         if not isinstance(self.d_in, int):
-            raise ValueError(f"d_in must be an int but was {self.d_in=}; {type(self.d_in)=}")
+            raise ValueError(
+                f"d_in must be an int but was {self.d_in=}; {type(self.d_in)=}"
+            )
         self.d_sae = cfg.d_sae
         self.l1_coefficient = cfg.l1_coefficient
         self.dtype = cfg.dtype
@@ -40,24 +42,36 @@ class SparseAutoencoder(HookedRootModule):
 
         # NOTE: if using resampling neurons method, you must ensure that we initialise the weights in the order W_enc, b_enc, W_dec, b_dec
         self.W_enc = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(self.d_in, self.d_sae, dtype=self.dtype, device=self.device))
+            torch.nn.init.kaiming_uniform_(
+                torch.empty(self.d_in, self.d_sae, dtype=self.dtype, device=self.device)
+            )
         )
-        self.b_enc = nn.Parameter(torch.zeros(self.d_sae, dtype=self.dtype, device=self.device))
+        self.b_enc = nn.Parameter(
+            torch.zeros(self.d_sae, dtype=self.dtype, device=self.device)
+        )
 
         self.W_dec = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(torch.empty(self.d_sae, self.d_in, dtype=self.dtype, device=self.device))
+            torch.nn.init.kaiming_uniform_(
+                torch.empty(self.d_sae, self.d_in, dtype=self.dtype, device=self.device)
+            )
         )
 
         if self.cfg.gated_sae:
-            self.r_mag = nn.Parameter(torch.zeros(self.d_sae, dtype=self.dtype, device=self.device))
+            self.r_mag = nn.Parameter(
+                torch.zeros(self.d_sae, dtype=self.dtype, device=self.device)
+            )
 
-            self.b_mag = nn.Parameter(torch.zeros(self.d_sae, dtype=self.dtype, device=self.device))
+            self.b_mag = nn.Parameter(
+                torch.zeros(self.d_sae, dtype=self.dtype, device=self.device)
+            )
 
         with torch.no_grad():
             # Anthropic normalize this to have unit columns
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
-        self.b_dec = nn.Parameter(torch.zeros(self.d_in, dtype=self.dtype, device=self.device))
+        self.b_dec = nn.Parameter(
+            torch.zeros(self.d_in, dtype=self.dtype, device=self.device)
+        )
 
         self.hook_sae_in = HookPoint()
         self.hook_hidden_pre = HookPoint()
@@ -75,7 +89,9 @@ class SparseAutoencoder(HookedRootModule):
     def forward_standard(self, x, dead_neuron_mask=None):
         x = x.to(self.dtype)
 
-        sae_in = self.hook_sae_in(x - self.b_dec)  # Remove encoder bias as per Anthropic
+        sae_in = self.hook_sae_in(
+            x - self.b_dec
+        )  # Remove encoder bias as per Anthropic
 
         hidden_pre = self.hook_hidden_pre(
             einops.einsum(
@@ -97,7 +113,10 @@ class SparseAutoencoder(HookedRootModule):
         )
 
         # add config for whether l2 is normalized:
-        mse_loss = torch.pow((sae_out - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
+        mse_loss = (
+            torch.pow((sae_out - x.float()), 2)
+            / (x**2).sum(dim=-1, keepdim=True).sqrt()
+        )
 
         mse_loss_ghost_resid = torch.tensor(0.0, dtype=self.dtype, device=self.device)
         # gate on config and training so evals is not slowed down.
@@ -112,9 +131,13 @@ class SparseAutoencoder(HookedRootModule):
 
             # 2.
             if len(hidden_pre.size()) == 3:
-                feature_acts_dead_neurons_only = torch.exp(hidden_pre[:, :, dead_neuron_mask])
+                feature_acts_dead_neurons_only = torch.exp(
+                    hidden_pre[:, :, dead_neuron_mask]
+                )
             else:
-                feature_acts_dead_neurons_only = torch.exp(hidden_pre[:, dead_neuron_mask])
+                feature_acts_dead_neurons_only = torch.exp(
+                    hidden_pre[:, dead_neuron_mask]
+                )
             ghost_out = feature_acts_dead_neurons_only @ self.W_dec[dead_neuron_mask, :]
             l2_norm_ghost_out = torch.norm(ghost_out, dim=-1)
             norm_scaling_factor = l2_norm_residual / (1e-6 + l2_norm_ghost_out * 2)
@@ -151,10 +174,14 @@ class SparseAutoencoder(HookedRootModule):
 
         return sae_out, feature_acts, loss_dict
 
-    def forward_clamp(self, x, dead_neuron_mask=None, clamp_feat_dim=None, clamp_value=10):
+    def forward_clamp(
+        self, x, dead_neuron_mask=None, clamp_feat_dim=None, clamp_value=10
+    ):
         # move x to correct dtype
         x = x.to(self.dtype)
-        sae_in = self.hook_sae_in(x - self.b_dec)  # Remove encoder bias as per Anthropic
+        sae_in = self.hook_sae_in(
+            x - self.b_dec
+        )  # Remove encoder bias as per Anthropic
 
         hidden_pre = self.hook_hidden_pre(
             einops.einsum(
@@ -185,7 +212,10 @@ class SparseAutoencoder(HookedRootModule):
         )
 
         # add config for whether l2 is normalized:
-        mse_loss = torch.pow((sae_out - x.float()), 2) / (x**2).sum(dim=-1, keepdim=True).sqrt()
+        mse_loss = (
+            torch.pow((sae_out - x.float()), 2)
+            / (x**2).sum(dim=-1, keepdim=True).sqrt()
+        )
 
         mse_loss_ghost_resid = torch.tensor(0.0, dtype=self.dtype, device=self.device)
 
@@ -234,7 +264,9 @@ class SparseAutoencoder(HookedRootModule):
         elif self.cfg.b_dec_init_method == "zeros":
             pass
         else:
-            raise ValueError(f"Unexpected b_dec_init_method: {self.cfg.b_dec_init_method}")
+            raise ValueError(
+                f"Unexpected b_dec_init_method: {self.cfg.b_dec_init_method}"
+            )
 
     @torch.no_grad()
     def initialize_b_dec_with_geometric_median(self, activation_store, maxiter=100):
@@ -253,7 +285,9 @@ class SparseAutoencoder(HookedRootModule):
         distances = torch.norm(all_activations - out, dim=-1)
 
         print("Reinitializing b_dec with geometric median of activations")
-        print(f"Previous distances: {previous_distances.median(0).values.mean().item()}")
+        print(
+            f"Previous distances: {previous_distances.median(0).values.mean().item()}"
+        )
         print(f"New distances: {distances.median(0).values.mean().item()}")
 
         out = torch.tensor(out, dtype=self.dtype, device=self.device)
@@ -278,7 +312,9 @@ class SparseAutoencoder(HookedRootModule):
         distances = torch.norm(all_activations - out, dim=-1)
 
         print("Reinitializing b_dec with mean of activations")
-        print(f"Previous distances: {previous_distances.median(0).values.mean().item()}")
+        print(
+            f"Previous distances: {previous_distances.median(0).values.mean().item()}"
+        )
         print(f"New distances: {distances.median(0).values.mean().item()}")
 
         self.b_dec.data = out.to(self.dtype).to(self.device)
@@ -316,26 +352,38 @@ class SparseAutoencoder(HookedRootModule):
             return 0  # If we have zero reconstruction loss, we don't need to resample neurons
 
         # Draw `n_hidden_ae` samples from [0, 1, ..., batch_size-1], with probabilities proportional to l2_loss squared
-        per_token_l2_loss = per_token_l2_loss.to(torch.float32)  # wont' work with bfloat16
-        distn = Categorical(probs=per_token_l2_loss.pow(2) / (per_token_l2_loss.pow(2).sum()))
+        per_token_l2_loss = per_token_l2_loss.to(
+            torch.float32
+        )  # wont' work with bfloat16
+        distn = Categorical(
+            probs=per_token_l2_loss.pow(2) / (per_token_l2_loss.pow(2).sum())
+        )
         replacement_indices = distn.sample((n_dead,))  # shape [n_dead]
 
         # Index into the batch of hidden activations to get our replacement values
-        replacement_values = (x - self.b_dec)[replacement_indices]  # shape [n_dead n_input_ae]
+        replacement_values = (x - self.b_dec)[
+            replacement_indices
+        ]  # shape [n_dead n_input_ae]
 
         # unit norm
-        replacement_values = replacement_values / (replacement_values.norm(dim=1, keepdim=True) + 1e-8)
+        replacement_values = replacement_values / (
+            replacement_values.norm(dim=1, keepdim=True) + 1e-8
+        )
 
         # St new decoder weights
         self.W_dec.data[is_dead, :] = replacement_values
 
         # Get the norm of alive neurons (or 1.0 if there are no alive neurons)
         W_enc_norm_alive_mean = (
-            1.0 if len(alive_neurons) == 0 else self.W_enc[:, alive_neurons].norm(dim=0).mean().item()
+            1.0
+            if len(alive_neurons) == 0
+            else self.W_enc[:, alive_neurons].norm(dim=0).mean().item()
         )
 
         # Lastly, set the new weights & biases
-        self.W_enc.data[:, is_dead] = (replacement_values * W_enc_norm_alive_mean * feature_reinit_scale).T
+        self.W_enc.data[:, is_dead] = (
+            replacement_values * W_enc_norm_alive_mean * feature_reinit_scale
+        ).T
         self.b_enc.data[is_dead] = 0.0
 
         # reset the Adam Optimiser for every modified weight and bias term
@@ -365,19 +413,23 @@ class SparseAutoencoder(HookedRootModule):
                             "Warning: it does not seem as if resetting the Adam parameters worked, there are shapes mismatches"
                         )
                     if v[v_key][:, is_dead].abs().max().item() > 1e-6:
-                        print("Warning: it does not seem as if resetting the Adam parameters worked")
+                        print(
+                            "Warning: it does not seem as if resetting the Adam parameters worked"
+                        )
 
         return n_dead
 
     @torch.no_grad()
-    def resample_neurons_anthropic(self, dead_neuron_indices, model, optimizer, activation_store):
+    def resample_neurons_anthropic(
+        self, dead_neuron_indices, model, optimizer, activation_store
+    ):
         """
         Arthur's version of Anthropic's feature resampling
         procedure.
         """
         # collect global loss increases, and input activations
-        global_loss_increases, global_input_activations = self.collect_anthropic_resampling_losses(
-            model, activation_store
+        global_loss_increases, global_input_activations = (
+            self.collect_anthropic_resampling_losses(model, activation_store)
         )
 
         # sample according to losses
@@ -395,14 +447,18 @@ class SparseAutoencoder(HookedRootModule):
         self.W_dec.data[dead_neuron_indices, :] = (
             (
                 global_input_activations[sample_indices]
-                / torch.norm(global_input_activations[sample_indices], dim=1, keepdim=True)
+                / torch.norm(
+                    global_input_activations[sample_indices], dim=1, keepdim=True
+                )
             )
             .to(self.dtype)
             .to(self.device)
         )
 
         # Lastly, set the new weights & biases
-        self.W_enc.data[:, dead_neuron_indices] = self.W_dec.data[dead_neuron_indices, :].T
+        self.W_enc.data[:, dead_neuron_indices] = self.W_dec.data[
+            dead_neuron_indices, :
+        ].T
         self.b_enc.data[dead_neuron_indices] = 0.0
 
         # Reset the Encoder Weights
@@ -410,11 +466,15 @@ class SparseAutoencoder(HookedRootModule):
             sum_of_all_norms = torch.norm(self.W_enc.data, dim=0).sum()
             sum_of_all_norms -= len(dead_neuron_indices)
             average_norm = sum_of_all_norms / (self.d_sae - len(dead_neuron_indices))
-            self.W_enc.data[:, dead_neuron_indices] *= self.cfg.feature_reinit_scale * average_norm
+            self.W_enc.data[:, dead_neuron_indices] *= (
+                self.cfg.feature_reinit_scale * average_norm
+            )
 
             # Set biases to resampled value
             relevant_biases = self.b_enc.data[dead_neuron_indices].mean()
-            self.b_enc.data[dead_neuron_indices] = relevant_biases * 0  # bias resample factor (put in config?)
+            self.b_enc.data[dead_neuron_indices] = (
+                relevant_biases * 0
+            )  # bias resample factor (put in config?)
 
         else:
             self.W_enc.data[:, dead_neuron_indices] *= self.cfg.feature_reinit_scale
@@ -448,7 +508,9 @@ class SparseAutoencoder(HookedRootModule):
                             "Warning: it does not seem as if resetting the Adam parameters worked, there are shapes mismatches"
                         )
                     if v[v_key][:, dead_neuron_indices].abs().max().item() > 1e-6:
-                        print("Warning: it does not seem as if resetting the Adam parameters worked")
+                        print(
+                            "Warning: it does not seem as if resetting the Adam parameters worked"
+                        )
 
         return
 
@@ -458,7 +520,9 @@ class SparseAutoencoder(HookedRootModule):
         Collects the losses for resampling neurons (anthropic)
         """
         if isinstance(self.cfg, ViTSAERunnerConfig):
-            raise Exception("Currently, resampling is not supported for training on ViTs.")
+            raise Exception(
+                "Currently, resampling is not supported for training on ViTs."
+            )
 
         batch_size = self.cfg.store_batch_size
 
@@ -466,9 +530,13 @@ class SparseAutoencoder(HookedRootModule):
         number_final_activations = self.cfg.resample_batches * batch_size
         # but have seq len number of tokens in each
         anthropic_iterator = range(0, number_final_activations, batch_size)
-        anthropic_iterator = tqdm(anthropic_iterator, desc="Collecting losses for resampling...")
+        anthropic_iterator = tqdm(
+            anthropic_iterator, desc="Collecting losses for resampling..."
+        )
 
-        global_loss_increases = torch.zeros((number_final_activations,), dtype=self.dtype, device=self.device)
+        global_loss_increases = torch.zeros(
+            (number_final_activations,), dtype=self.dtype, device=self.device
+        )
         global_input_activations = torch.zeros(
             (number_final_activations, self.d_in), dtype=self.dtype, device=self.device
         )
@@ -489,22 +557,32 @@ class SparseAutoencoder(HookedRootModule):
 
             normal_activations = normal_activations_cache[self.cfg.hook_point]
             if self.cfg.hook_point_head_index is not None:
-                normal_activations = normal_activations[:, :, self.cfg.hook_point_head_index]
+                normal_activations = normal_activations[
+                    :, :, self.cfg.hook_point_head_index
+                ]
 
             # calculate the difference in loss
             changes_in_loss = ce_loss_with_recons - ce_loss_without_recons
             changes_in_loss = changes_in_loss.cpu()
 
             # sample from the loss differences
-            probs = F.relu(changes_in_loss) / F.relu(changes_in_loss).sum(dim=1, keepdim=True)
+            probs = F.relu(changes_in_loss) / F.relu(changes_in_loss).sum(
+                dim=1, keepdim=True
+            )
             changes_in_loss_dist = Categorical(probs)
             samples = changes_in_loss_dist.sample()
 
-            assert samples.shape == (batch_size,), f"{samples.shape=}; {self.cfg.store_batch_size=}"
+            assert samples.shape == (
+                batch_size,
+            ), f"{samples.shape=}; {self.cfg.store_batch_size=}"
 
             end_idx = refill_idx + batch_size
-            global_loss_increases[refill_idx:end_idx] = changes_in_loss[torch.arange(batch_size), samples]
-            global_input_activations[refill_idx:end_idx] = normal_activations[torch.arange(batch_size), samples]
+            global_loss_increases[refill_idx:end_idx] = changes_in_loss[
+                torch.arange(batch_size), samples
+            ]
+            global_input_activations[refill_idx:end_idx] = normal_activations[
+                torch.arange(batch_size), samples
+            ]
 
         return global_loss_increases, global_input_activations
 
@@ -521,11 +599,15 @@ class SparseAutoencoder(HookedRootModule):
             return activations
 
         def head_replacement_hook(activations, hook):
-            new_actions = self.forward(activations[:, :, head_index])[0].to(activations.dtype)
+            new_actions = self.forward(activations[:, :, head_index])[0].to(
+                activations.dtype
+            )
             activations[:, :, head_index] = new_actions
             return activations
 
-        replacement_hook = standard_replacement_hook if head_index is None else head_replacement_hook
+        replacement_hook = (
+            standard_replacement_hook if head_index is None else head_replacement_hook
+        )
 
         ce_loss_with_recons = model.run_with_hooks(
             batch_tokens,
@@ -575,7 +657,9 @@ class SparseAutoencoder(HookedRootModule):
             with gzip.open(path, "wb") as f:
                 pickle.dump(state_dict, f)
         else:
-            raise ValueError(f"Unexpected file extension: {path}, supported extensions are .pt and .pkl.gz")
+            raise ValueError(
+                f"Unexpected file extension: {path}, supported extensions are .pt and .pkl.gz"
+            )
 
         print(f"Saved model to {path}")
 
@@ -606,7 +690,9 @@ class SparseAutoencoder(HookedRootModule):
                 with gzip.open(path, "rb") as f:
                     state_dict = pickle.load(f)
             except Exception as e:
-                raise IOError(f"Error loading the state dictionary from .pkl.gz file: {e}")
+                raise IOError(
+                    f"Error loading the state dictionary from .pkl.gz file: {e}"
+                )
         elif path.endswith(".pkl"):
             try:
                 with open(path, "rb") as f:
@@ -614,11 +700,15 @@ class SparseAutoencoder(HookedRootModule):
             except Exception as e:
                 raise IOError(f"Error loading the state dictionary from .pkl file: {e}")
         else:
-            raise ValueError(f"Unexpected file extension: {path}, supported extensions are .pt, .pkl, and .pkl.gz")
+            raise ValueError(
+                f"Unexpected file extension: {path}, supported extensions are .pt, .pkl, and .pkl.gz"
+            )
 
         # Ensure the loaded state contains both 'cfg' and 'state_dict'
         if "cfg" not in state_dict or "state_dict" not in state_dict:
-            raise ValueError("The loaded state dictionary must contain 'cfg' and 'state_dict' keys")
+            raise ValueError(
+                "The loaded state dictionary must contain 'cfg' and 'state_dict' keys"
+            )
 
         # Create an instance of the class using the loaded configuration
         instance = cls(cfg=state_dict["cfg"])
@@ -627,7 +717,9 @@ class SparseAutoencoder(HookedRootModule):
         return instance
 
     def get_name(self):
-        model_name = "_".join(self.cfg.model_name.split("/"))  # remove the last part of the model name
+        model_name = "_".join(
+            self.cfg.model_name.split("/")
+        )  # remove the last part of the model name
         sae_name = f"sparse_autoencoder_{model_name}_{self.cfg.block_layer}_{self.cfg.module_name}_{self.cfg.d_sae}"
 
         # if isinstance(self.cfg, ViTSAERunnerConfig):

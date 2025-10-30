@@ -4,8 +4,6 @@ from typing import Optional, Tuple
 
 import h5py
 import numpy as np
-import torch
-from PIL import Image
 from tqdm import tqdm
 
 from src.utils.image_dataset_loader import ImageDatasetLoader
@@ -39,10 +37,16 @@ class H5ActivationtWriter:
             )
 
     def write_cls_activation_batch(
-        self, start_idx: int, end_idx: int, activations: np.ndarray, cls_idx: Optional[int] = None
+        self,
+        start_idx: int,
+        end_idx: int,
+        activations: np.ndarray,
+        cls_idx: Optional[int] = None,
     ):
         with h5py.File(self.save_path, "a") as f:
-            dataset_name = f"activations_{cls_idx}" if cls_idx is not None else "activations"
+            dataset_name = (
+                f"activations_{cls_idx}" if cls_idx is not None else "activations"
+            )
             f[dataset_name][start_idx:end_idx] = activations
 
 
@@ -63,14 +67,20 @@ def extract_sae_latent_activations(
     total_batches = (len_dataset + batch_size - 1) // batch_size
     batch_iterator = BatchIterator.get_batches(dataset, batch_size, image_key)
 
-    for start_idx, end_idx, batch in tqdm(batch_iterator, desc="Processing batches", total=total_batches):
-        batch_inputs = ImageProcessor.process_model_inputs(batch, vit, device, image_key=image_key)
+    for start_idx, end_idx, batch in tqdm(
+        batch_iterator, desc="Processing batches", total=total_batches
+    ):
+        batch_inputs = ImageProcessor.process_model_inputs(
+            batch, vit, device, image_key=image_key
+        )
 
         sae_latents = ImageProcessor.get_sae_activations(
             sae, vit, batch_inputs, cfg.block_layer, cfg.module_name, cfg.class_token
         )
 
-        writer.write_batch(start_idx, end_idx, sae_latents.cpu().numpy(), cls_idx=cls_idx)
+        writer.write_batch(
+            start_idx, end_idx, sae_latents.cpu().numpy(), cls_idx=cls_idx
+        )
 
 
 def main(
@@ -94,7 +104,9 @@ def main(
     save_dir = Path(root_dir) / save_name / sae_name / dataset_name
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / f"{split}_sae_latents.h5"
-    h5_writer = H5DatasetWriter(save_path, cfg.d_sae, len(dataset[image_key]), cls_idx=cls_idx)
+    h5_writer = H5DatasetWriter(
+        save_path, cfg.d_sae, len(dataset[image_key]), cls_idx=cls_idx
+    )
 
     extract_sae_latent_activations(
         dataset=dataset,
@@ -110,12 +122,19 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process ViT SAE images and save feature data")
+    parser = argparse.ArgumentParser(
+        description="Process ViT SAE images and save feature data"
+    )
     parser.add_argument("--root_dir", type=str, default=".", help="Root directory")
     parser.add_argument("--dataset_name", type=str, default="imagenet")
-    parser.add_argument("--sae_path", type=str, required=True, help="SAE ckpt path (ends with xxx.pt)")
     parser.add_argument(
-        "--batch_size", type=int, default=8, help="Batch size to compute model activations and sae features"
+        "--sae_path", type=str, required=True, help="SAE ckpt path (ends with xxx.pt)"
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=8,
+        help="Batch size to compute model activations and sae features",
     )
     parser.add_argument("--backbone", type=str, default="openai/clip-vit-base-patch16")
     parser.add_argument("--split", type=str, default="train")

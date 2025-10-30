@@ -38,7 +38,9 @@ class SegmentationEvalHelper:
             random.seed(seed)
             image_files = random.sample(image_files, subsample)
 
-        mask_files = [os.path.join(mask_folder, os.path.basename(f)) for f in image_files]
+        mask_files = [
+            os.path.join(mask_folder, os.path.basename(f)) for f in image_files
+        ]
 
         out = []
         for image_file, mask_file in zip(image_files, mask_files):
@@ -51,7 +53,9 @@ class SegmentationEvalHelper:
 
     def process_mask(self, mask_path, resize_size=256):
         mask = Image.open(mask_path.replace("jpg", "png"))
-        mask = mask.resize((resize_size, resize_size), Image.NEAREST)  # Nearest to keep class indices intact
+        mask = mask.resize(
+            (resize_size, resize_size), Image.NEAREST
+        )  # Nearest to keep class indices intact
         return np.array(mask, dtype=np.uint8)
 
     def get_binary_mask(self, mask, class_index):
@@ -62,14 +66,18 @@ class SegmentationEvalHelper:
     def resize_mask(self, mask, resize_size=256):
         mask = (mask - mask.min()) / (mask.max() - mask.min() + 1e-10)
         mask = (
-            torch.nn.functional.interpolate(mask, (resize_size, resize_size), mode="bilinear", align_corners=False)
+            torch.nn.functional.interpolate(
+                mask, (resize_size, resize_size), mode="bilinear", align_corners=False
+            )
             .cpu()
             .numpy()
         )
         return mask
 
     def evaluate_auprc(self, pred_mask, gt_mask):
-        precision, recall, _ = precision_recall_curve(gt_mask.flatten(), pred_mask.flatten())
+        precision, recall, _ = precision_recall_curve(
+            gt_mask.flatten(), pred_mask.flatten()
+        )
         score = auc(recall, precision)
         return score
 

@@ -11,14 +11,20 @@ from src.sae_training.sae_trainer import SAETrainer
 from src.sae_training.sparse_autoencoder import SparseAutoencoder
 from src.sae_training.utils import get_scheduler
 from src.sae_training.vit_activations_store import ViTActivationsStore
-from src.utils.image_dataset_loader import ImageDatasetLoader
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--class_token", type=str, default="include", choices=["include", "exclude", "only"])
+    parser.add_argument(
+        "--class_token",
+        type=str,
+        default="include",
+        choices=["include", "exclude", "only"],
+    )
     parser.add_argument("--image_width", type=int, default=336)
     parser.add_argument("--image_height", type=int, default=336)
-    parser.add_argument("--model_name", type=str, default="openai/clip-vit-large-patch14")
+    parser.add_argument(
+        "--model_name", type=str, default="openai/clip-vit-large-patch14"
+    )
     parser.add_argument("--module_name", type=str, default="resid")
     parser.add_argument("--block_layer", type=int, default=-2)
     parser.add_argument("--clip_dim", type=int, default=1024)
@@ -61,7 +67,9 @@ if __name__ == "__main__":
     parser.add_argument("--start_training_steps", type=int, default=0)
     parser.add_argument("--pt_name", type=str)
 
-    parser.add_argument("--dataset_path", type=str, default="evanarlian/imagenet_1k_resized_256")
+    parser.add_argument(
+        "--dataset_path", type=str, default="evanarlian/imagenet_1k_resized_256"
+    )
     parser.add_argument("--vit_type", type=str, default="base")
     parser.add_argument(
         "--model_path",
@@ -116,7 +124,6 @@ if __name__ == "__main__":
     )
 
     print("Loading dataset")
-    classnames = None
     dataset = load_dataset(args.dataset_path, split="train")
 
     print("Loading SAE and ViT models")
@@ -148,5 +155,7 @@ if __name__ == "__main__":
     if cfg.log_to_wandb:
         wandb.init(project=cfg.wandb_project, config=cfg, name=cfg.run_name)
 
-    sae_trainer = SAETrainer(sae, vit, activation_store, cfg, optimizer, scheduler, args.device)
+    sae_trainer = SAETrainer(
+        sae, vit, activation_store, cfg, optimizer, scheduler, args.device
+    )
     sae_trainer.fit()

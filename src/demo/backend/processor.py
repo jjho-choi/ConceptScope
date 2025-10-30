@@ -4,14 +4,11 @@ import os
 from io import BytesIO
 
 import h5py
-import hdbscan
 import numpy as np
 import pandas as pd
 import torch
-import umap
 from PIL import Image
 from sklearn.decomposition import PCA
-from statsmodels.stats.proportion import proportion_confint
 from tqdm import tqdm
 
 from src.conceptscope.conceptscope import ConceptScope
@@ -70,7 +67,9 @@ class Processor:
         self._model_name = None
         self._concept_categorization_dict = None
         self._class_names = None
-        self.image_root = f"{self.save_root}/checkpoints/{self.checkpoint_name}/reference_images"
+        self.image_root = (
+            f"{self.save_root}/checkpoints/{self.checkpoint_name}/reference_images"
+        )
         self._refernce_dataset = ImageDatasetLoader.load_dataset(
             dataset_name="imagenet", split="train", root=self.data_root
         )
@@ -140,7 +139,9 @@ class Processor:
             dataset_name=dataset_name,
             train_split=train_split,
         )
-        self._class_names = load_class_names(self.data_root, dataset_name, self._train_dataset)
+        self._class_names = load_class_names(
+            self.data_root, dataset_name, self._train_dataset
+        )
         self._concept_matrix = self._get_concept_matrix(
             dataset_name=dataset_name,
             split=train_split,
@@ -152,7 +153,9 @@ class Processor:
     @model_name.setter
     def model_name(self, model_name):
         self._model_name = model_name
-        self._pred_results = self._load_pred_results(dataset_name=self.dataset_name, model_name=model_name)
+        self._pred_results = self._load_pred_results(
+            dataset_name=self.dataset_name, model_name=model_name
+        )
 
     def get_concept_info(self, latent_idx, resize_size=256, top_k_images=20):
 
@@ -212,16 +215,22 @@ class Processor:
 
     @test_dataset.setter
     def test_dataset(self, dataset_name, split):
-        self.test_dataset = ImageDatasetLoader.load_dataset(dataset_name=dataset_name, split=split, root=self.data_root)
+        self.test_dataset = ImageDatasetLoader.load_dataset(
+            dataset_name=dataset_name, split=split, root=self.data_root
+        )
 
     def _get_concept_matrix(self, dataset_name, split):
-        concept_matrix = self.conceptscope.get_train_mean_var_activations(dataset_name=dataset_name, split=split)
+        concept_matrix = self.conceptscope.get_train_mean_var_activations(
+            dataset_name=dataset_name, split=split
+        )
         return concept_matrix
 
     @property
     def concept_matrix(self):
         if self._concept_matrix is None:
-            self._concept_matrix = self._get_concept_matrix(self.dataset_name, self.train_split)
+            self._concept_matrix = self._get_concept_matrix(
+                self.dataset_name, self.train_split
+            )
         return self._concept_matrix
 
     def _filter_concept_matrix(self, concept_type):
@@ -231,10 +240,14 @@ class Processor:
 
                 latent_indices = []
                 if concept_type == "context":
-                    for slice_info in self.concept_categorization_dict[str(selected_class)]["context"]:
+                    for slice_info in self.concept_categorization_dict[
+                        str(selected_class)
+                    ]["context"]:
                         latent_indices.append(slice_info["latent_idx"])
                 elif concept_type == "target":
-                    for slice_info in self.concept_categorization_dict[str(selected_class)]["target"]:
+                    for slice_info in self.concept_categorization_dict[
+                        str(selected_class)
+                    ]["target"]:
                         latent_indices.append(slice_info["latent_idx"])
 
                 latent_indices = np.array(latent_indices).astype(int)
@@ -283,7 +296,15 @@ class Processor:
         )
         return self.encode_images(train_images + test_images)
 
-    def get_samples_by_indices(self, indices, split, with_mask=False, latent_idx=None, resize_size=256, top_k=10):
+    def get_samples_by_indices(
+        self,
+        indices,
+        split,
+        with_mask=False,
+        latent_idx=None,
+        resize_size=256,
+        top_k=10,
+    ):
         if split == "train":
             dataset = self.train_dataset
         else:
@@ -302,12 +323,16 @@ class Processor:
         out = {"images": self.encode_images(images)}
         if with_mask:
             highest_image_mask = self.get_sae_mask(images, latent_idx, resize_size)
-            masked_highest_images = self.apply_sae_mask_to_input(images, highest_image_mask, reverse=False)
+            masked_highest_images = self.apply_sae_mask_to_input(
+                images, highest_image_mask, reverse=False
+            )
             out["masked_images"] = self.encode_images(masked_highest_images)
 
         return out
 
-    def get_info_for_selected_samples(self, selected_class, train_selected_indices, test_selected_indices, top_k=3):
+    def get_info_for_selected_samples(
+        self, selected_class, train_selected_indices, test_selected_indices, top_k=3
+    ):
         train_indices, train_activations = self.get_class_indices_and_activations(
             class_idx=selected_class, split=self.train_split
         )
@@ -316,7 +341,9 @@ class Processor:
         )
 
         def get_local_indices(global_indices, reference_indices):
-            return np.array([np.where(reference_indices == idx)[0][0] for idx in global_indices])
+            return np.array(
+                [np.where(reference_indices == idx)[0][0] for idx in global_indices]
+            )
 
         train_local = get_local_indices(train_selected_indices, train_indices)
         test_local = get_local_indices(test_selected_indices, test_indices)
@@ -330,7 +357,9 @@ class Processor:
                 [train_activations[train_local], test_activations[test_local]], axis=0
             )
 
-        avg_activations = np.mean(selected_activations[:, self.conceptscope.valid_latents], axis=0)
+        avg_activations = np.mean(
+            selected_activations[:, self.conceptscope.valid_latents], axis=0
+        )
         top_indices = np.argsort(-avg_activations)[:top_k]
         top_activations = avg_activations[top_indices]
 
@@ -353,7 +382,9 @@ class Processor:
             train_image_dict = {"images": []}
         else:
             train_image_dict = self.get_samples_by_indices(
-                indices=train_indices[train_local], split=self.train_split, with_mask=False
+                indices=train_indices[train_local],
+                split=self.train_split,
+                with_mask=False,
             )
         if len(test_local) == 0:
             test_image_dict = {"images": []}
@@ -368,7 +399,9 @@ class Processor:
             "test_images": test_image_dict,
         }
 
-    def get_activation_from_indices(self, indices, class_idx, split="test", latent_idx=None):
+    def get_activation_from_indices(
+        self, indices, class_idx, split="test", latent_idx=None
+    ):
         if split == "train":
             split = self.train_split
         else:
@@ -394,14 +427,20 @@ class Processor:
         }
 
         context_means = []
-        len_target = len(self.concept_categorization_dict[str(selected_class)]["target"])
+        len_target = len(
+            self.concept_categorization_dict[str(selected_class)]["target"]
+        )
         len_context = max_concepts - len_target
         all_slices = (
             self.concept_categorization_dict[str(selected_class)]["target"]
-            + self.concept_categorization_dict[str(selected_class)]["context"][:len_context]
+            + self.concept_categorization_dict[str(selected_class)]["context"][
+                :len_context
+            ]
         )
 
-        class_activations = self.get_class_sae_activation(split="train", class_idx=selected_class)
+        class_activations = self.get_class_sae_activation(
+            split="train", class_idx=selected_class
+        )
         for i, slice_info in enumerate(all_slices):
             data["latent_idx"].append(slice_info["latent_idx"])
             data["latent_name"].append(slice_info["latent_name"])
@@ -449,11 +488,15 @@ class Processor:
             if f"activations_{class_idx}" in hf:
                 activations = hf[f"activations_{class_idx}"][:]
             else:
-                raise ValueError(f"No activations found for class index {class_idx} in {save_path}")
+                raise ValueError(
+                    f"No activations found for class index {class_idx} in {save_path}"
+                )
         return activations
 
     def get_sae_mask(self, images, idx, resize_size=256):
-        inputs = ImageProcessor.process_model_inputs({"image": images}, self.conceptscope.vit, self.device)
+        inputs = ImageProcessor.process_model_inputs(
+            {"image": images}, self.conceptscope.vit, self.device
+        )
         sae_act = ImageProcessor.get_sae_activations(
             self.conceptscope.sae,
             self.conceptscope.vit,
@@ -466,21 +509,36 @@ class Processor:
         selected_act = sae_act[:, :, idx]
         feature_size = int(np.sqrt(selected_act.shape[1] - 1))
 
-        masks = torch.Tensor(selected_act[:, 1:].reshape(sae_act.shape[0], 1, feature_size, feature_size))
+        masks = torch.Tensor(
+            selected_act[:, 1:].reshape(sae_act.shape[0], 1, feature_size, feature_size)
+        )
         masks = (
-            torch.nn.functional.interpolate(masks, (resize_size, resize_size), mode="bilinear").squeeze(1).cpu().numpy()
+            torch.nn.functional.interpolate(
+                masks, (resize_size, resize_size), mode="bilinear"
+            )
+            .squeeze(1)
+            .cpu()
+            .numpy()
         )
         return masks
 
-    def apply_sae_mask_to_input(self, images, masks, resize_size=256, blend_rate=0.0, gamma=0.001, reverse=False):
+    def apply_sae_mask_to_input(
+        self, images, masks, resize_size=256, blend_rate=0.0, gamma=0.001, reverse=False
+    ):
         masked_images = []
         for i, image in enumerate(images):
             if isinstance(image, str):
                 image = Image.open(image).convert("RGB")
-            image_array = np.array(image.resize((resize_size, resize_size)))[..., :3].astype(np.float32)
+            image_array = np.array(image.resize((resize_size, resize_size)))[
+                ..., :3
+            ].astype(np.float32)
 
-            mask = (masks[i] - masks[i].min()) / (masks[i].max() - masks[i].min() + 1e-10)
-            mask = np.expand_dims(mask, axis=-1)  # Make shape (H, W, 1) to broadcast over RGB
+            mask = (masks[i] - masks[i].min()) / (
+                masks[i].max() - masks[i].min() + 1e-10
+            )
+            mask = np.expand_dims(
+                mask, axis=-1
+            )  # Make shape (H, W, 1) to broadcast over RGB
 
             mask = mask**gamma
 
@@ -513,7 +571,9 @@ class Processor:
         threshold=None,
         dataset_name=None,
     ):
-        class_activations = self.get_class_sae_activation(split=split, class_idx=class_idx)
+        class_activations = self.get_class_sae_activation(
+            split=split, class_idx=class_idx
+        )
         latent_activations = class_activations[:, latent_idx]
 
         if split == "train":
@@ -531,8 +591,12 @@ class Processor:
         else:
             all_high_indices = np.where(latent_activations >= threshold)[0]
             all_low_indices = np.where(latent_activations < threshold)[0]
-            all_high_indices = all_high_indices[np.argsort(latent_activations[all_high_indices])[::-1]]
-            all_low_indices = all_low_indices[np.argsort(latent_activations[all_low_indices])[::-1]]
+            all_high_indices = all_high_indices[
+                np.argsort(latent_activations[all_high_indices])[::-1]
+            ]
+            all_low_indices = all_low_indices[
+                np.argsort(latent_activations[all_low_indices])[::-1]
+            ]
 
             sorted_indices = np.argsort(latent_activations)[::-1]
             highest_indices = sorted_indices[:top_k]
@@ -557,17 +621,27 @@ class Processor:
                 images.append(image.resize((resize_size, resize_size)))
             return images
 
-        highest_images = _get_image_from_index(class_indices, highest_indices, dataset, resize_size)
-        lowest_images = _get_image_from_index(class_indices, lowest_indices, dataset, resize_size)
+        highest_images = _get_image_from_index(
+            class_indices, highest_indices, dataset, resize_size
+        )
+        lowest_images = _get_image_from_index(
+            class_indices, lowest_indices, dataset, resize_size
+        )
 
         highest_image_mask = self.get_sae_mask(highest_images, latent_idx, resize_size)
-        masked_highest_images = self.apply_sae_mask_to_input(highest_images, highest_image_mask, reverse=False)
+        masked_highest_images = self.apply_sae_mask_to_input(
+            highest_images, highest_image_mask, reverse=False
+        )
         out = {
             "highest_images": self.encode_images(highest_images),
             "lowest_images": self.encode_images(lowest_images),
             "masked_highest_images": self.encode_images(masked_highest_images),
-            "high_activations": [round(x, 3) for x in latent_activations[highest_indices].tolist()],
-            "low_activations": [round(x, 3) for x in latent_activations[lowest_indices].tolist()],
+            "high_activations": [
+                round(x, 3) for x in latent_activations[highest_indices].tolist()
+            ],
+            "low_activations": [
+                round(x, 3) for x in latent_activations[lowest_indices].tolist()
+            ],
             "high_indices": class_indices[highest_indices].tolist(),
             "low_indices": class_indices[lowest_indices].tolist(),
         }
@@ -578,13 +652,26 @@ class Processor:
         return out
 
     def get_images_with_prediction(
-        self, class_idx, latent_idx, resize_size=256, top_k=10, threshold=0.5, dataset_name=None
+        self,
+        class_idx,
+        latent_idx,
+        resize_size=256,
+        top_k=10,
+        threshold=0.5,
+        dataset_name=None,
     ):
         class_dict = self.get_images_from_class(
-            class_idx, latent_idx, split=self.test_split, resize_size=resize_size, top_k=top_k, threshold=threshold
+            class_idx,
+            latent_idx,
+            split=self.test_split,
+            resize_size=resize_size,
+            top_k=top_k,
+            threshold=threshold,
         )
 
-        save_path = f"{self.save_root}/classification/results/{self.dataset_name}/resnet50.csv"
+        save_path = (
+            f"{self.save_root}/classification/results/{self.dataset_name}/resnet50.csv"
+        )
         all_prediction = pd.read_csv(save_path)
         preds = all_prediction["pred_label"].to_numpy()
         gts = all_prediction["gt_label"].to_numpy()
@@ -593,10 +680,14 @@ class Processor:
         #     class_dict["high_acc"] = float(is_correct[class_dict["high_indices"]].mean())
         #     class_dict["low_acc"] = float(is_correct[class_dict["low_indices"]].mean())
         # else:
-        class_dict["high_acc"] = float(is_correct[class_dict["all_high_indices"]].mean())
+        class_dict["high_acc"] = float(
+            is_correct[class_dict["all_high_indices"]].mean()
+        )
         class_dict["low_acc"] = float(is_correct[class_dict["all_low_indices"]].mean())
         class_mean_acc = is_correct[
-            np.concatenate([class_dict["all_high_indices"], class_dict["all_low_indices"]])
+            np.concatenate(
+                [class_dict["all_high_indices"], class_dict["all_low_indices"]]
+            )
         ].mean()
         class_dict["mean_acc"] = float(class_mean_acc)
         class_dict["num_high"] = len(class_dict["all_high_indices"])
@@ -606,7 +697,9 @@ class Processor:
         del class_dict["all_high_indices"]
         del class_dict["all_low_indices"]
 
-        train_activations = self.get_class_sae_activation(split="train", class_idx=class_idx)[:, latent_idx]
+        train_activations = self.get_class_sae_activation(
+            split="train", class_idx=class_idx
+        )[:, latent_idx]
         num_high_train = np.where(train_activations >= threshold)[0].shape[0]
         num_high_train_ratio = num_high_train / train_activations.shape[0]
         class_dict["num_high_train"] = num_high_train

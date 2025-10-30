@@ -1,4 +1,5 @@
 out/
+*.zip
 .vscode/
 credential.py
 __pycache__/

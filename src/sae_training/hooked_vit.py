@@ -1,3 +1,8 @@
+"""
+# Portions of this file are based on code from the "HugoFry/mats_sae_training_for_ViTs" repository (MIT-licensed):
+    https://github.com/HugoFry/mats_sae_training_for_ViTs/blob/main/sae_training/hooked_vit.py
+"""
+
 from contextlib import contextmanager
 from functools import partial
 from typing import Callable, List, Tuple
@@ -25,7 +30,9 @@ class Hook:
         self.path_dict = {
             "resid": "",
         }
-        assert module_name in self.path_dict.keys(), f"Module name '{module_name}' not recognised."
+        assert (
+            module_name in self.path_dict.keys()
+        ), f"Module name '{module_name}' not recognised."
         self.return_module_output = return_module_output
         self.function = self.get_full_hook_fn(hook_fn)
         self.attr_path = self.get_attr_path(block_layer, module_name, is_custom)
@@ -40,7 +47,9 @@ class Hook:
 
         return full_hook_fn
 
-    def get_attr_path(self, block_layer: int, module_name: str, is_custom: bool = None) -> str:
+    def get_attr_path(
+        self, block_layer: int, module_name: str, is_custom: bool = None
+    ) -> str:
         if is_custom:
             attr_path = f"image_encoder.transformer.resblocks[{block_layer}]"
         else:
@@ -117,26 +126,34 @@ class HookedVisionTransformer:
         return cache_dict, list_of_hooks
 
     @torch.no_grad()
-    def run_with_hooks(self, list_of_hooks: List[Hook], *args, return_type="output", **kwargs):
+    def run_with_hooks(
+        self, list_of_hooks: List[Hook], *args, return_type="output", **kwargs
+    ):
         with self.hooks(list_of_hooks) as hooked_model:
             with torch.no_grad():
                 output = hooked_model(*args, **kwargs)
         if return_type == "output":
             return output
         if return_type == "loss":
-            return self.contrastive_loss(output.logits_per_image, output.logits_per_text)
+            return self.contrastive_loss(
+                output.logits_per_image, output.logits_per_text
+            )
         else:
             raise Exception(
                 f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'."
             )
 
-    def train_with_hooks(self, list_of_hooks: List[Hook], *args, return_type="output", **kwargs):
+    def train_with_hooks(
+        self, list_of_hooks: List[Hook], *args, return_type="output", **kwargs
+    ):
         with self.hooks(list_of_hooks) as hooked_model:
             output = hooked_model(*args, **kwargs)
         if return_type == "output":
             return output
         if return_type == "loss":
-            return self.contrastive_loss(output.logits_per_image, output.logits_per_text)
+            return self.contrastive_loss(
+                output.logits_per_image, output.logits_per_text
+            )
         else:
             raise Exception(
                 f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'."
@@ -197,7 +214,9 @@ class HookedVisionTransformer:
             return self.model(*args, **kwargs)
         elif return_type == "loss":
             output = self.model(*args, **kwargs)
-            return self.contrastive_loss(output.logits_per_image, output.logits_per_text)
+            return self.contrastive_loss(
+                output.logits_per_image, output.logits_per_text
+            )
         else:
             raise Exception(
                 f"Unrecognised keyword argument return_type='{return_type}'. Must be either 'output' or 'loss'."

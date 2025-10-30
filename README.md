@@ -48,13 +48,13 @@ pip install -r requirements.txt
 ### 2. Download Weights and Data
 To reproduce the paper results without running the full analysis, you can directly download the pretrained SAE weights and pre-computed outputs as follows:
 ~~~
-gdown 1NJzF8PriKz_mopBY4l8_44R0FVi2uw2g  # out.zip
+gdown 16EQFKCWRpSNR-LWmxpuTGqViLpVf3KEb  # out.zip
 unzip out.zip
 ~~~
 
 If you wish to analyze the ImageNet dataset, download the pre-computed SAE latents as follows:
 ~~~
-gdown 1NJzF8PriKz_mopBY4l8_44R0FVi2uw2g  # train_sae_latents.h5
+gdown 1q33iBwUHEqgiNQGFqVgYAUjoquYHfTIL  # train_sae_latents.h5
 mv train_sae_latents.h5 out/checkpoints/openai_l14_32k_base
 ~~~
 
@@ -83,10 +83,10 @@ It allows you to:
 Create a `.env` file in the project root and set the following variables:
 
 ```bash
-VISUALIZER_ROOT="<project_root>/ConceptScope"
+PROJECT_ROOT="<project_root>"
 DEVICE="cuda:<your_device_number>"
 PORT="<your_port>"
-CHECKPOINT_NAME="<checkpoint_name>"
+CHECKPOINT_NAME="openai_l14_32K_base"
 ```
 
 #### 1. Start the Backend
@@ -94,7 +94,7 @@ CHECKPOINT_NAME="<checkpoint_name>"
 From the project root, run:
 
 ```bash
-PYTHONPATH=./ uvicorn src.demo.backend.main:app --port <PORT> --reload
+PYTHONPATH=./ uvicorn src.demo.backend.main:app --port <PORT> 
 ```
 #### 2. Start the Front 
 In a separate terminal, run:
@@ -129,7 +129,7 @@ PYTHONPATH=./ python src/sae_training/train_sae.py \
     --b_dec_init_method geometric_median \
     --lr 0.0004 \
     --l1_coefficient 0.00008 \
-    --batch_size 64 \
+    --batch_size 128 
 ```
 
 ### Key arguments
@@ -193,6 +193,8 @@ PYTHONPATH=./ python src/construct_concept_dict/main.py \
 | `--batch_size`    | `int`  | `64`                            | Batch size for processing                               |
 | `--save_features` | `flag` | *disabled*                      | If set, save extracted features for later use           |
 
+
+If you set --use_gp, you have to set OPENAI_API_KEY in env file.
 
 ### Outputs
 - `valid_latent.json` – indices of meaningful latents
@@ -264,5 +266,33 @@ PYTHONPATH=./ python src/conceptscope/main.py \
 - Adjust `--bias_threshold_sigma`  if you want stricter or looser bias detection.
 
 
-## Evaluation 
-Further details are can be seen in [Evaluation Guide](./src/experiments/README.md).
+## 📜 License & Credits
+
+### Reference Implementations
+- [PatchSAE [ICLR 2025]](https://github.com/dynamical-inference/patchsae)
+- [SAE for ViT](https://github.com/HugoFry/mats_sae_training_for_ViTs)
+- [SAELens](https://github.com/jbloomAus/SAELens)
+- [Differentiable and Fast Geometric Median in NumPy and PyTorch](https://github.com/krishnap25/geom_median)
+
+### License Notice
+
+Our code is distributed under an MIT license, please see the [LICENSE](LICENSE) file for details.
+The [NOTICE](NOTICE) file lists license for all third-party code included in this repository.
+Please include the contents of the LICENSE and NOTICE files in all re-distributions of this code.
+
+---
+
+### Citation
+
+If you find our code or models useful in your work, please cite our [paper](https://openreview.net/forum?id=lkmlNHuzY4):
+
+```
+@inproceedings{
+    choi2025characterizing,
+    title     = {Characterizing Dataset Bias via Disentangled Visual Concepts},
+    author    = {Choi, Jinho and Lim, Hyesu and Schneider, Steffen and Choo, Jaegul},
+    booktitle = {Proceedings of the 39th Conference on Neural Information Processing Systems (NeurIPS)},
+    year      = {2025}
+    url       = {https://openreview.net/forum?id=lkmlNHuzY4}
+}
+```

@@ -1,4 +1,9 @@
-from datasets import load_dataset
+"""
+# Portions of this file are based on code from the “jbloomAus/SAELens” and "HugoFry/mats_sae_training_for_ViTs" repositories (MIT-licensed):
+    https://github.com/jbloomAus/SAELens/blob/main/sae_lens/training/activations_store.py
+    https://github.com/HugoFry/mats_sae_training_for_ViTs/blob/main/sae_training/vit_activations_store.py
+"""
+
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.sae_training.hooked_vit import HookedVisionTransformer
@@ -21,6 +26,7 @@ class ViTActivationsStore:
         block_layer: int,
         module_name: str,
         class_token: bool,
+        num_workers: int = 8,
     ):
         self.device = device
         self.model = model
@@ -28,12 +34,10 @@ class ViTActivationsStore:
         self.block_layer = block_layer
         self.module_name = module_name
         self.class_token = class_token
+        self.num_workers = num_workers
 
         self.dataset = dataset.shuffle(seed=seed)
         self.dataset_iter = iter(self.dataset)
-
-        # Initialize dataloader
-        # self.dataloader = self._create_new_dataloader()
 
     def get_batch_model_inputs(self, process_labels=False):
         """Get model activations for a batch of data"""
@@ -51,34 +55,30 @@ class ViTActivationsStore:
                 current_item = next(self.dataset_iter)
             _add_data(current_item, batch_dict)
 
-        inputs = process_model_inputs(batch_dict, self.model, self.device, process_labels=process_labels)
+        inputs = process_model_inputs(
+            batch_dict, self.model, self.device, process_labels=process_labels
+        )
         return inputs
 
     def get_batch_activations(self):
-        # """Get model activations for a batch of data"""
-        # batch_dict = {"image": [], "label": []}
 
-        # def _add_data(current_item, batch_dict):
-        #     for key, value in current_item.items():
-        #         batch_dict[key].append(value)
-
-        # for _ in range(self.batch_size):
-        #     try:
-        #         current_item = next(self.dataset_iter)
-        #     except StopIteration:
-        #         self.dataset_iter = iter(self.dataset)
-        #         current_item = next(self.dataset_iter)
-        #     _add_data(current_item, batch_dict)
-
-        # inputs = process_model_inputs(batch_dict, self.model, self.device)
         inputs = self.get_batch_model_inputs()
-        return get_model_activations(self.model, inputs, self.block_layer, self.module_name, self.class_token)
+        return get_model_activations(
+            self.model, inputs, self.block_layer, self.module_name, self.class_token
+        )
 
     def _create_new_dataloader(self) -> DataLoader:
         """Create a new dataloader with fresh activations"""
         activations = self._get_batch_activations()
         dataset = TensorDataset(activations)
-        return iter(DataLoader(dataset, batch_size=self.batch_size, shuffle=True))
+        return iter(
+            DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.num_workers,
+            )
+        )
 
     def get_next_batch(self):
         """Get next batch, creating new dataloader if current one is exhausted"""

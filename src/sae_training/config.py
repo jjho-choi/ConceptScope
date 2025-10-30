@@ -1,8 +1,15 @@
+"""
+# Portions of this file are based on code from the “jbloomAus/SAELens” and "HugoFry/mats_sae_training_for_ViTs" repositories (MIT-licensed):
+    https://github.com/jbloomAus/SAELens/blob/main/sae_lens/config.py
+    https://github.com/HugoFry/mats_sae_training_for_ViTs/blob/main/sae_training/config.py
+"""
+
 from abc import ABC
 from dataclasses import dataclass
 from typing import Optional
 
 import torch
+
 import wandb
 
 
@@ -113,7 +120,9 @@ class ViTSAERunnerConfig:
 
     # Resampling protocol args
     use_ghost_grads: bool = True
-    feature_sampling_window: int = 2000  # May need to change this since by default I will use ghost grads
+    feature_sampling_window: int = (
+        2000  # May need to change this since by default I will use ghost grads
+    )
     feature_sampling_method: str = "anthropic"  # None or Anthropic
     resample_batches: int = 32
     feature_reinit_scale: float = 0.2
@@ -155,14 +164,18 @@ class ViTSAERunnerConfig:
                 f"b_dec_init_method must be geometric_median, mean, or zeros. Got {self.b_dec_init_method}"
             )
         if self.b_dec_init_method == "zeros":
-            print("Warning: We are initializing b_dec to zeros. This is probably not what you want.")
+            print(
+                "Warning: We are initializing b_dec to zeros. This is probably not what you want."
+            )
 
         self.device = torch.device(self.device)
 
         unique_id = wandb.util.generate_id()
         self.checkpoint_path = f"{self.checkpoint_path}/{unique_id}"
 
-        print(f"Run name: {self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-Tokens-{self.total_training_tokens:3.3e}")
+        print(
+            f"Run name: {self.d_sae}-L1-{self.l1_coefficient}-LR-{self.lr}-Tokens-{self.total_training_tokens:3.3e}"
+        )
         # Print out some useful info:
 
         total_training_steps = self.total_training_tokens // self.batch_size
@@ -178,14 +191,22 @@ class ViTSAERunnerConfig:
         print(
             f"n_tokens_per_feature_sampling_window (millions): {(self.feature_sampling_window * self.batch_size) / 10 **6}"
         )
-        print(f"n_tokens_per_dead_feature_window (millions): {(self.dead_feature_window * self.batch_size) / 10 **6}")
+        print(
+            f"n_tokens_per_dead_feature_window (millions): {(self.dead_feature_window * self.batch_size) / 10 **6}"
+        )
         if self.feature_sampling_method != None:
             print(f"We will reset neurons {n_dead_feature_samples} times.")
 
         if self.use_ghost_grads:
             print("Using Ghost Grads.")
 
-        print(f"We will reset the sparsity calculation {n_feature_window_samples} times.")
-        print(f"Number of tokens when resampling: {self.resample_batches * self.batch_size}")
+        print(
+            f"We will reset the sparsity calculation {n_feature_window_samples} times."
+        )
+        print(
+            f"Number of tokens when resampling: {self.resample_batches * self.batch_size}"
+        )
         # print("Number tokens in dead feature calculation window: ", self.dead_feature_window * self.train_batch_size)
-        print(f"Number tokens in sparsity calculation window: {self.feature_sampling_window * self.batch_size:.2e}")
+        print(
+            f"Number tokens in sparsity calculation window: {self.feature_sampling_window * self.batch_size:.2e}"
+        )

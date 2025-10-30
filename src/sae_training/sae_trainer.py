@@ -1,3 +1,10 @@
+"""
+# Portions of this file are based on code from the “jbloomAus/SAELens”, "HugoFry/mats_sae_training_for_ViTs" and "dynamical-inference/patchsae" repositories (MIT-licensed):
+    https://github.com/jbloomAus/SAELens/blob/main/sae_lens/training/sae_trainer.py
+    https://github.com/HugoFry/mats_sae_training_for_ViTs/blob/main/sae_training/config.py
+    https://github.com/dynamical-inference/patchsae//src/sae_training/sae_trainer.py
+"""
+
 from typing import Any
 
 import torch
@@ -49,7 +56,9 @@ class SAETrainer:
         log_feature_freq = torch.log10(feature_freq + 1e-10).detach().cpu()
 
         return {
-            "plots/feature_density_line_chart": wandb.Histogram(log_feature_freq.numpy()),
+            "plots/feature_density_line_chart": wandb.Histogram(
+                log_feature_freq.numpy()
+            ),
             "metrics/mean_log10_feature_sparsity": log_feature_freq.mean().item(),
         }
 
@@ -74,7 +83,9 @@ class SAETrainer:
                 wandb.log(sparsity_log_dict, step=self.n_training_steps)
             self._reset_running_sparsity_stats()
 
-        ghost_grad_neuron_mask = (self.n_forward_passes_since_fired > self.cfg.dead_feature_window).bool()
+        ghost_grad_neuron_mask = (
+            self.n_forward_passes_since_fired > self.cfg.dead_feature_window
+        ).bool()
         sae_out, feature_acts, loss_dict = self.sae(sae_in, ghost_grad_neuron_mask)
 
         with torch.no_grad():
@@ -110,7 +121,10 @@ class SAETrainer:
             "sparsity/n_passes_since_fired_over_threshold": self.ghost_grad_neuron_mask.sum().item(),
             "sparsity/below_1e-5": (feature_freq < 1e-5).float().mean().item(),
             "sparsity/below_1e-6": (feature_freq < 1e-6).float().mean().item(),
-            "sparsity/dead_features": (feature_freq < self.cfg.dead_feature_threshold).float().mean().item(),
+            "sparsity/dead_features": (feature_freq < self.cfg.dead_feature_threshold)
+            .float()
+            .mean()
+            .item(),
         }
 
     @torch.no_grad()
@@ -139,7 +153,9 @@ class SAETrainer:
         wandb.log(log_dict, step=self.n_training_steps)
 
     @torch.no_grad()
-    def _calculate_metrics(self, feature_acts: torch.Tensor, sae_out: torch.Tensor, sae_in: torch.Tensor) -> dict:
+    def _calculate_metrics(
+        self, feature_acts: torch.Tensor, sae_out: torch.Tensor, sae_in: torch.Tensor
+    ) -> dict:
         """Calculate model performance metrics."""
         if self.cfg.class_token is "only":
             l0 = (feature_acts > 0).float().sum(-1).mean()
@@ -164,7 +180,10 @@ class SAETrainer:
 
     @torch.no_grad()
     def _checkpoint_if_needed(self):
-        if self.checkpoint_thresholds and self.n_training_tokens > self.checkpoint_thresholds[0]:
+        if (
+            self.checkpoint_thresholds
+            and self.n_training_tokens > self.checkpoint_thresholds[0]
+        ):
             self.save_checkpoint()
             self.run_evals()  # TODO: Implement this
             self.checkpoint_thresholds.pop(0)
@@ -181,15 +200,16 @@ class SAETrainer:
         pbar = tqdm(total=self.cfg.total_training_tokens, desc="Training SAE")
 
         try:
-            # Train loop
             while self.n_training_tokens < self.cfg.total_training_tokens:
-                # Do a training step.
                 sae_acts = self.activation_store.get_batch_activations()
                 self.n_training_tokens += sae_acts.size(0)
 
                 sae_out, feature_acts, loss_dict = self._train_step(sae_in=sae_acts)
 
-                if self.cfg.log_to_wandb and (self.n_training_steps + 1) % self.cfg.wandb_log_frequency == 0:
+                if (
+                    self.cfg.log_to_wandb
+                    and (self.n_training_steps + 1) % self.cfg.wandb_log_frequency == 0
+                ):
                     self._log_train_step(
                         feature_acts=feature_acts,
                         loss_dict=loss_dict,
@@ -221,7 +241,9 @@ class SAETrainer:
             )
 
         def _zero_ablation_hook(activations):
-            activations[:, 0, :] = torch.zeros_like(activations[:, 0, :]).to(activations.device)
+            activations[:, 0, :] = torch.zeros_like(activations[:, 0, :]).to(
+                activations.device
+            )
             return (activations,)
 
         def _sae_reconstruction_hook(activations):
@@ -235,14 +257,20 @@ class SAETrainer:
 
         # Compute loss with SAE reconstruction
         sae_hooks = [_create_hook(_sae_reconstruction_hook)]
-        reconstruction_loss = self.model.run_with_hooks(sae_hooks, return_type="loss", **model_inputs).item()
+        reconstruction_loss = self.model.run_with_hooks(
+            sae_hooks, return_type="loss", **model_inputs
+        ).item()
 
         # Compute loss with zeroed activations
         zero_hooks = [_create_hook(_zero_ablation_hook)]
-        zero_ablation_loss = self.model.run_with_hooks(zero_hooks, return_type="loss", **model_inputs).item()
+        zero_ablation_loss = self.model.run_with_hooks(
+            zero_hooks, return_type="loss", **model_inputs
+        ).item()
 
         # Calculate reconstruction score
-        reconstruction_score = (reconstruction_loss - original_loss) / (zero_ablation_loss - original_loss)
+        reconstruction_score = (reconstruction_loss - original_loss) / (
+            zero_ablation_loss - original_loss
+        )
 
         # Log metrics if configured
         if self.cfg.log_to_wandb:

@@ -64,6 +64,10 @@ mv train_sae_latents.h5 out/checkpoints/openai_l14_32k_base
 
 
 ## Run Demo 
+<div align="center">
+  <img src="./assets/output.gif" alt="ConceptScope Demo Walkthrough" width="100%">
+  
+</div>
 
 This demo provides an **interactive UI** for exploring concepts discovered by ConceptScope.  
 It allows you to:
@@ -71,6 +75,7 @@ It allows you to:
 - Select a dataset and class
 - Visualize the distribution of **target**, **context**, and **bias** concepts
 - Inspect **high-activation** and **low-activation** samples for any selected latent
+
 
 ### Requirements
 - **Trained SAE checkpoint** (from `train_sae.py`)

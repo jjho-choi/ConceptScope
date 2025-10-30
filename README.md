@@ -56,7 +56,7 @@ unzip out.zip
 If you wish to analyze the ImageNet dataset, download the pre-computed SAE latents as follows:
 ~~~
 gdown 1q33iBwUHEqgiNQGFqVgYAUjoquYHfTIL  # train_sae_latents.h5
-mv train_sae_latents.h5 out/checkpoints/openai_l14_32k_base
+mv train_sae_latents.h5 out/dataset_analysis/imagenet/openai_l14_32k_base
 ~~~
 
 >⚠️ Note: The SAE latent file from the ImageNet training set is approximately 32 GB in size.

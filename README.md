@@ -1,16 +1,16 @@
 # ConceptScope: Characterizing Dataset Bias via Disentangled Visual Concepts
 **Official Repository – NeurIPS 2025**
 
-<div align="center">
-  <img src="./assets/overview.png" alt="ConceptScope Teaser" width="80%">
-</div>
+
 
 <p align="center">
   <a href="https://jjho-choi.github.io/ConcepScope-projectpage/">🌐 Project Page</a> |
   <a href="https://drive.google.com/file/d/1OuSB27qIxaXUpn0tXUvWW7irv-56rYoM/preview">🎬 Demo Video</a> |
   <a href="#run-demo">🚀 Run Interactive Demo</a>
 </p>
-
+<div align="center">
+  <img src="./assets/overview.png" alt="ConceptScope Teaser" width="80%">
+</div>
 
 ConceptScope is a framework for analyzing vision dataset bias by uncovering and quantifying visual concepts using Sparse Autoencoders (SAEs).
 This repository provides:
@@ -46,13 +46,20 @@ pip install -r requirements.txt
 ~~~
 
 ### 2. Download Weights and Data
-**SAE Model Weights** 
-- To reproduce results from the paper, download the pretrained SAE weights from [LINK]
-and place them in: `out/checkpoints`
+To reproduce the paper results without running the full analysis, you can directly download the pretrained SAE weights and pre-computed outputs as follows:
+~~~
+gdown 1NJzF8PriKz_mopBY4l8_44R0FVi2uw2g  # out.zip
+unzip out.zip
+~~~
 
-**Pre-computed Analysis Results**
-- To skip running the full analysis and directly explore results, download the pre-computed outputs from [LINK] and place them in:
-`out/dataset_analysis`
+If you wish to analyze the ImageNet dataset, download the pre-computed SAE latents as follows:
+~~~
+gdown 1NJzF8PriKz_mopBY4l8_44R0FVi2uw2g  # train_sae_latents.h5
+mv train_sae_latents.h5 out/checkpoints/openai_l14_32k_base
+~~~
+
+>⚠️ Note: The SAE latent file from the ImageNet training set is approximately 32 GB in size.
+
 
 
 ## Run Demo 
@@ -77,8 +84,8 @@ Create a `.env` file in the project root and set the following variables:
 
 ```bash
 VISUALIZER_ROOT="<project_root>/ConceptScope"
-DEVICE="cuda:7"
-PORT="8085"
+DEVICE="cuda:<your_device_number>"
+PORT="<your_port>"
 CHECKPOINT_NAME="<checkpoint_name>"
 ```
 
@@ -231,7 +238,8 @@ PYTHONPATH=./ python src/conceptscope/main.py \
 | `--target_attribute` | `str`   | `None`                          | Optional target attribute for subgroup analysis                         |
 | `--batch_size`       | `int`   | `64`                            | Batch size for processing                                               |
 | `--num_samples`      | `int`   | `256`                           | Number of samples to compute alignment scores                                            |
-|`--target_threshold` | `float` | `0.0`                           | Normalized alignment score threshold for marking a latent as **target** |
+|`--target_threshold` | `float` | `0.0`                           | Alignment score threshold for marking a latent as **target** |
+|`--bias_threshold_sigma` | `float` | `1.0`                           | Multiplier for the standard deviation used to determine the concept strength threshold for marking a latent as **bias** |
 
 ### Outputs 
 - `<split>_concept_categorization.json`: dictionary with per-class lists of target, context, and bias latents.
@@ -253,7 +261,7 @@ PYTHONPATH=./ python src/conceptscope/main.py \
 
 ### Notes 
 - Increasing `--target_threshold` makes target concepts more selective
-- Adjust `bias_threshold_sigma` inside `concept_categorization()` if you want stricter or looser bias detection.
+- Adjust `--bias_threshold_sigma`  if you want stricter or looser bias detection.
 
 
 ## Evaluation 

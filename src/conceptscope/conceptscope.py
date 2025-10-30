@@ -196,6 +196,7 @@ class ConceptScope(SAEModule):
         target_attribute=None,
         batch_size=64,
         target_threshold=0.0,
+        bias_threshold_sigma=1.0,
         verbose=True,
     ):
         if verbose:
@@ -218,6 +219,7 @@ class ConceptScope(SAEModule):
             alignment_scores_dict,
             target_attribute=target_attribute,
             target_threshold=target_threshold,
+            bias_threshold_sigma=bias_threshold_sigma,
         )
 
         return concept_categorized_dict
